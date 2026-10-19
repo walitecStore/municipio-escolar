@@ -1,7 +1,7 @@
 {
   "name": "municipio-escolar",
   "version": "1.0.0",
-  "description": "Plataforma web para realizar elecciones digitales en una institución educativa del Perú.",
+  "description": "Plataforma web para realizar elecciones digitales en una instituci\u00f3n educativa del Per\u00fa.",
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0",
     "build": "next build",
@@ -11,7 +11,8 @@
     "test:install": "PLAYWRIGHT_BROWSERS_PATH=0 playwright install chromium",
     "test:unit": "tsx --test tests/unit/*.test.ts",
     "type-check": "tsc --noEmit",
-    "test:postgres": "bash scripts/test-postgres.sh"
+    "test:postgres": "bash scripts/test-postgres.sh",
+    "test:connected": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test --config=playwright.connected.config.ts"
   },
   "repository": {
     "type": "git",
@@ -26,6 +27,8 @@
   },
   "homepage": "https://github.com/walitecStore/municipio-escolar#readme",
   "dependencies": {
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.118.0",
     "exceljs": "^4.4.0",
     "fflate": "^0.8.3",
     "lucide-react": "^1.59.0",
@@ -34,7 +37,9 @@
     "pg": "^8.23.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "sharp": "^0.35.5"
+    "server-only": "^0.0.1",
+    "sharp": "^0.35.5",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.10",

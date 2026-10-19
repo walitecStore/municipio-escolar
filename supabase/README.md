@@ -11,7 +11,10 @@ Ejecutar **solo después de autorización y en un entorno de pruebas primero**:
    de Supabase Storage. Requiere los objetos gestionados por Supabase Storage y su
    RLS activado. No recrear ni cambiar propietarios de `auth` o `storage`.
 
-Los tres archivos forman la versión completa. No habilitar clientes entre pasos.
+4. `migrations/202610190004_secure_application_sessions.sql`: sesiones, perfiles
+   de personal, MFA AAL2 y protección de activación oficial.
+
+Los cuatro archivos forman la versión completa. No habilitar clientes entre pasos.
 La migración 001 se conserva sin cambios: si ya fue aplicada por una persona,
 comprobar su historial y aplicar únicamente las pendientes en orden. No repetir
 los scripts sobre objetos existentes ni comentar instrucciones que fallen.
@@ -61,3 +64,16 @@ la comunidad debe exponer únicamente un agregado autorizado, nunca papeletas.
 La autorización, entrega física, reglas de proclamación/quórum, firma de actas y
 operación del comité electoral requieren aprobación institucional. Los PDF y Excel
 actuales están marcados como demostración, no como documentos oficiales firmados.
+
+## Ampliación de integración Next.js
+
+Después de 001, 002 y 003 aplicar manualmente, cuando corresponda:
+
+4. `migrations/202610190004_secure_application_sessions.sql`: rol de personal,
+   sesión y elecciones accesibles, administración con AAL2 y barrera de apertura
+   oficial. No se ha aplicado al servicio real.
+
+La guía actual y completa de activación es `docs/ACTIVACION-SUPABASE.md`.
+Con la 004, `is_admin` requiere TOTP/AAL2 además de membresía. Administrador y comité
+son perfiles de personal autorizado con las mismas facultades actuales. Las
+cuentas sin membresía no reciben permisos por sus metadatos editables.

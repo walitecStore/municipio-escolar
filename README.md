@@ -43,7 +43,7 @@ npm run dev
 ```
 
 Puerto 3000. La demostración no necesita credenciales ni variables. `.env.example`
-solo contiene nombres vacíos para una integración futura; nunca guardar claves
+contiene la configuración deshabilitada, sin credenciales; nunca guardar claves
 secretas en variables `NEXT_PUBLIC_`.
 
 Para producción local:
@@ -89,6 +89,7 @@ El orden completo está en [supabase/README.md](supabase/README.md):
 1. `202610190001_electoral_security.sql`.
 2. `202610190002_complete_electoral_system.sql`.
 3. `202610190003_private_electoral_media.sql`.
+4. `202610190004_secure_application_sessions.sql`.
 
 **No se han ejecutado en Supabase real.** No ejecutar los fixtures de pruebas en
 ese servicio. Antes de conectar, autorizar un entorno de pruebas, configurar Auth,
@@ -124,3 +125,26 @@ Se conserva la licencia de origen en `public/candidatos/LICENCIA-FUENTE.txt`.
 No representan estudiantes del colegio ni implican su respaldo. Las fotografías
 reales deberán sanearse en el servidor, contar con autorización y permanecer en
 el bucket privado preparado por la migración 003.
+
+## Integración real con Supabase (preparada, sin activar el proyecto alojado)
+
+La ruta `/sistema` utiliza el SDK oficial en el servidor para Auth, sesiones
+HttpOnly, MFA TOTP de administrador/comité, RPC de padrón/listas/credenciales/voto,
+recuento tras cierre y Storage privado. La demostración original se conserva.
+
+La conexión y la emisión están apagadas por defecto. No se han usado credenciales
+reales ni ejecutado SQL en Supabase. La guía completa de configuración manual,
+variables, creación controlada de cuentas y validación está en
+[docs/ACTIVACION-SUPABASE.md](docs/ACTIVACION-SUPABASE.md).
+
+La secuencia actual es **001 → 002 → 003 → 004**. La migración 004 añade roles de
+personal, contexto de sesión, MFA AAL2 para administración y aprobación de
+seguridad para elecciones oficiales. No basta con aplicar solo las tres primeras.
+
+```bash
+PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:connected
+```
+
+Esta suite ejecuta Next.js y el SDK con un servicio HTTP local de prueba, sin
+credenciales reales. La validación final contra Auth y Storage alojados sigue
+pendiente de la configuración y autorización manual.

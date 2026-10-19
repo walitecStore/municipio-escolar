@@ -72,6 +72,8 @@ before(async () => {
   );
   await pool.query(`do $$ begin if not exists(select 1 from pg_roles where rolname='anon') then create role anon;end if;if not exists(select 1 from pg_roles where rolname='authenticated') then create role authenticated;end if;if not exists(select 1 from pg_roles where rolname='service_role') then create role service_role bypassrls;end if;end $$;
  create schema auth;create table auth.users(id uuid primary key);
+ create function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb,'{"aal":"aal2"}'::jsonb) $$;
+ grant execute on function auth.jwt() to authenticated;
  create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
  grant usage on schema public,auth to anon,authenticated,service_role;grant execute on function auth.uid() to anon,authenticated,service_role;
  create schema storage;create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
@@ -86,6 +88,7 @@ before(async () => {
     "202610190001_electoral_security.sql",
     "202610190002_complete_electoral_system.sql",
     "202610190003_private_electoral_media.sql",
+    "202610190004_secure_application_sessions.sql",
   ])
     await pool.query(await readFile(`supabase/migrations/${name}`, "utf8"));
   await pool.query("insert into auth.users values($1)", [admin]);
@@ -724,4 +727,65 @@ test("recuento sin votos o solo blancos no inventa ganador ni divide entre cero"
       ),
     );
   }
+});
+
+test("sesión y comité requieren AAL2; elección oficial sin aprobación permanece bloqueada", async () => {
+  const f = await fixture(false);
+  await session(admin, async (c) => {
+    await c.query("select set_config('request.jwt.claims',$1,true)", [
+      JSON.stringify({ aal: "aal1" }),
+    ]);
+    const context = (
+      await c.query("select public.get_electoral_session() value")
+    ).rows[0].value;
+    assert.equal(context.role, "administrator");
+    assert.equal(context.aal, "aal1");
+    await assert.rejects(
+      c.query("select * from public.get_electoral_roll($1)", [f.election]),
+      /Acceso denegado/,
+    );
+  });
+  await pool.query(
+    "update electoral_private.administrators set role='committee' where user_id=$1",
+    [admin],
+  );
+  const context = (
+    await session(admin, (c) =>
+      c.query("select public.get_electoral_session() value"),
+    )
+  ).rows[0].value;
+  assert.equal(context.role, "committee");
+  assert.equal(context.aal, "aal2");
+  const accessible = (
+    await session(f.users[0], (c) =>
+      c.query("select public.list_accessible_elections() value"),
+    )
+  ).rows[0].value;
+  assert.equal(accessible.length, 1);
+  assert.equal(accessible[0].id, f.election);
+  await pool.query(
+    "update electoral_private.elections set purpose='official' where id=$1",
+    [f.election],
+  );
+  await assert.rejects(
+    session(admin, (c) =>
+      c.query("select public.manage_electoral_election($1,2026,'open')", [
+        f.election,
+      ]),
+    ),
+    /sin aprobación/,
+  );
+  await assert.rejects(
+    session(admin, (c) =>
+      c.query(
+        "update electoral_private.elections set security_approved=true where id=$1",
+        [f.election],
+      ),
+    ),
+    /permission denied/,
+  );
+  await pool.query(
+    "update electoral_private.administrators set role='administrator' where user_id=$1",
+    [admin],
+  );
 });
