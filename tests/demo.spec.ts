@@ -93,6 +93,10 @@ test("la selección no persiste ni envía votos y los resultados permanecen est�
   await page
     .getByRole("button", { name: "Confirmar selección de demostración" })
     .click();
+  await expect(
+    page.getByRole("heading", { name: "Revisa tu selección" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Completar demostración" }).click();
   await expect(page.getByRole("status")).toContainText(
     "No se ha emitido ni registrado ningún voto oficial",
   );
@@ -104,12 +108,29 @@ test("la selección no persiste ni envía votos y los resultados permanecen est�
   await page
     .getByRole("button", { name: "Confirmar selección de demostración" })
     .click();
+  await expect(
+    page.getByRole("heading", { name: "Revisa tu selección" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Completar demostración" }).click();
   await expect(page.getByRole("status")).toContainText("Voto en blanco");
   await page.getByRole("button", { name: "Reiniciar demostración" }).click();
   await expect(
     page.getByRole("button", { name: "Confirmar selección de demostración" }),
   ).toBeDisabled();
   await page.goto("/resultados");
+  await expect(
+    page.getByRole("heading", {
+      name: "Resultados bloqueados hasta el cierre",
+    }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Ir al panel administrativo" }).click();
+  await page
+    .getByRole("button", { name: "Simular apertura electoral" })
+    .click();
+  await page.getByRole("button", { name: "Simular cierre electoral" }).click();
+  await page
+    .getByRole("link", { name: "Consultar resultados", exact: true })
+    .click();
   await expect(page.getByText("98 preferencias ficticias")).toBeVisible();
   expect(mutations).toEqual([]);
 });

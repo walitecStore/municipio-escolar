@@ -75,3 +75,15 @@ test("credenciales aleatorias de 256 bits, distintas, hash unidireccional y cadu
   assert.notEqual(a.tokenHash, b.tokenHash);
   assert.equal(a.expiresAt.toISOString(), "2026-10-20T00:00:00.000Z");
 });
+
+test("Excel rechaza archivos comprimidos con expansión excesiva antes del parser", async () => {
+  const { zipSync } = await import("fflate");
+  const archive = zipSync(
+    { "xl/worksheets/sheet1.xml": new Uint8Array(3 * 1024 * 1024) },
+    { level: 9 },
+  );
+  await assert.rejects(
+    readRollExcel(new Uint8Array(archive).buffer),
+    /expandido/,
+  );
+});

@@ -16,3 +16,6 @@ private/
 imports/
 credentials/
 *.credential.json
+# Local database fixtures and download artifacts
+.local-postgres/
+*.pdf

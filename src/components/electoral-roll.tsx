@@ -1,5 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
+import { useElectoralDemo } from "./electoral-context";
 import {
   Download,
   FileSpreadsheet,
@@ -11,7 +12,6 @@ import {
 } from "lucide-react";
 import { institution, grades, sections } from "@/lib/institution";
 import {
-  demoStudents,
   isDemoOnly,
   rollSummary,
   validateRows,
@@ -20,14 +20,20 @@ import {
 } from "@/lib/roll/model";
 
 export function ElectoralRoll() {
-  const [students, setStudents] = useState<Elector[]>(demoStudents);
+  const {
+    electors: students,
+    setElectors: setStudents,
+    rollLocked,
+    setRollLocked,
+    state,
+  } = useElectoralDemo();
+  const locked = rollLocked || state !== "draft";
   const [query, setQuery] = useState("");
   const [grade, setGrade] = useState("");
   const [section, setSection] = useState("");
   const [preview, setPreview] = useState<ImportResult | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  const [locked, setLocked] = useState(false);
   const [editing, setEditing] = useState<{
     original: string;
     record: Elector;
@@ -61,7 +67,7 @@ export function ElectoralRoll() {
     }
   }
   async function importFile(file?: File) {
-    if (!file || locked) return;
+    if (!file || locked || editing) return;
     setBusy(true);
     setMessage("");
     setPreview(null);
@@ -191,7 +197,7 @@ export function ElectoralRoll() {
               type="file"
               accept=".xlsx"
               aria-label="Importar Excel ficticio"
-              disabled={locked || busy}
+              disabled={locked || busy || Boolean(editing)}
               onChange={(e) => void importFile(e.target.files?.[0])}
             />
           </label>
@@ -379,12 +385,14 @@ export function ElectoralRoll() {
                   <td>{s.grade}.º</td>
                   <td>{s.section}</td>
                   <td>
-                    <span className="badge">Pendiente</span>
+                    <span className="badge">
+                      {s.voted ? "Participó (demo)" : "Pendiente"}
+                    </span>
                   </td>
                   <td>
                     <button
                       className="text-link"
-                      disabled={locked || busy}
+                      disabled={locked || busy || Boolean(preview)}
                       onClick={() => {
                         setEditing({ original: s.code, record: { ...s } });
                         setEditError("");
@@ -501,7 +509,7 @@ export function ElectoralRoll() {
             students.length !== institution.expectedStudents
           }
           onClick={() => {
-            setLocked(true);
+            setRollLocked(true);
             setMessage(
               "Padrón ficticio bloqueado. La elección real permanece deshabilitada.",
             );

@@ -1,12 +1,53 @@
+import { Unzip, UnzipInflate } from "fflate";
 import ExcelJS from "exceljs";
 import { demoStudents, validateRows, type ImportResult } from "./model";
 export const MAX_FILE_BYTES = 2 * 1024 * 1024;
 const headers = ["codigo", "nombre", "grado", "seccion"];
+
+/** Validate expanded bytes incrementally before ExcelJS parses any workbook. */
+function validateArchive(buffer: ArrayBuffer) {
+  let entries = 0,
+    total = 0;
+  const limit = 2 * 1024 * 1024;
+  const fail = () =>
+    new Error("Excel inválido o supera los límites de tamaño expandido.");
+  try {
+    const zip = new Unzip((file) => {
+      if (
+        ++entries > 128 ||
+        (file.originalSize ?? 0) > limit ||
+        file.name.includes("..") ||
+        (!file.name.endsWith("/") && !/\.(xml|rels)$/i.test(file.name))
+      )
+        throw fail();
+      let expanded = 0;
+      file.ondata = (error, data) => {
+        if (error) throw fail();
+        expanded += data.length;
+        total += data.length;
+        if (expanded > limit || total > 8 * 1024 * 1024) throw fail();
+      };
+      file.start();
+    });
+    zip.register(UnzipInflate);
+    const input = new Uint8Array(buffer);
+    for (let offset = 0; offset < input.length; offset += 4096)
+      zip.push(
+        input.subarray(offset, offset + 4096),
+        offset + 4096 >= input.length,
+      );
+    if (!entries) throw fail();
+  } catch {
+    throw fail();
+  }
+}
+
 export async function readRollExcel(
   buffer: ArrayBuffer,
 ): Promise<ImportResult> {
   if (buffer.byteLength > MAX_FILE_BYTES)
     throw new Error("El archivo supera 2 MB.");
+  validateArchive(buffer);
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer);
   if (workbook.worksheets.length !== 1)

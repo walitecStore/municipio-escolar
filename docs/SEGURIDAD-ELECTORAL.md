@@ -1,112 +1,198 @@
-# Seguridad electoral: preparación sin servicios conectados
+# Seguridad electoral y estado de integración
 
-## Estado actual
+## Alcance y estado verificable
 
-La institución configurada es **I.E. ESTEBAN PAVLETICH TRUJILLO**, Educación
-Secundaria, año inicial 2026 y meta de 230 estudiantes. Existen 15 secciones:
-1.º a 5.º, cada una con A, B y C.
+I.E. ESTEBAN PAVLETICH TRUJILLO, Educación Secundaria, 2026, 230 electores y
+15 secciones (1.º a 5.º, A/B/C). No hay conexión a Supabase real ni Vercel.
 
-La web pública sigue siendo una demostración. No hay sesiones autenticadas,
-servidor de gestión del padrón, almacenamiento de credenciales ni elección real.
-No cargar información real. La importación pública exige los identificadores
-`DEMO-NNN` y nombres `Estudiante ficticio NNN`; procesa el Excel en memoria,
-sin enviarlo al servidor, localStorage o cookies. El cierre de edición es una
-simulación reversible al recargar, no una frontera de seguridad.
+La web sigue siendo una demostración con datos ficticios en memoria. Las listas,
+regidores, padrón y fase se comparten al navegar, pero desaparecen al recargar.
+La selección de voto no se envía, almacena ni convierte en participación oficial.
+La simulación administrativa no autentica personas; no habilitarla con datos reales.
 
-La migración `supabase/migrations/202610190001_electoral_security.sql` es una
-preparación de backend, **no está desplegada ni conectada a la web**. Se ejecuta
-solo en PGlite en memoria durante las pruebas. No protege un servicio externo
-hasta que se despliegue y se verifique su integración autorizada.
+El backend SQL sí está implementado y probado en PostgreSQL 17 local con múltiples
+conexiones. Auth y Storage se representan con esquemas/roles de prueba para validar
+SQL y RLS; no se ha verificado todavía la integración HTTP/JWT/Storage del proyecto
+Supabase real. El flujo completo de sesiones y entrega real no está conectado.
 
-## Modelo de datos y permisos preparados
+## Tablas y separación de datos
 
-- `electoral_private.electors`: identidad, código único por elección, grado,
-  sección y vínculo único con una identidad autenticada de `auth.users`.
-- `electoral_private.classrooms`: las 15 secciones autorizadas.
-- `electoral_private.administrators`: membresía administrativa. Solo un operador
-  privilegiado puede concederla; no hay una ruta pública de autoasignación.
-- `electoral_private.credentials`: hash SHA-256 de un token aleatorio, caducidad
-  y consumo. No contiene el token original ni tiene permisos de lectura web.
-- `electoral_private.participations`: solo elección e identidad; clave única por
-  elector y elección. No contiene lista elegida.
-- `ballot_box.ballots`: UUID aleatorio, elección y candidatura (o NULL para
-  blanco). No contiene identidad, código, credencial, hora ni identificador de
-  participación. No existe permiso de lectura o escritura directa desde la web.
+- `electoral_private.elections`, `classrooms`, `electors`: elección, 15 secciones
+  y padrón. Código y usuario autenticado son únicos por elección. La capacidad de
+  apertura es exactamente 230; borradores incompletos pueden corregirse.
+- `electoral_private.choices` representa las listas existentes, conservando su
+  identidad para compatibilidad. Tiene número único, propuestas y símbolo privado.
+- `electoral_private.candidates`: alcalde y regidores, cargo, orden, grado, sección
+  y fotografía. Una posición por lista; la alcaldía ocupa 0 y regidurías 1–20.
+  Ese límite técnico no sustituye las reglas institucionales de composición.
+- `electoral_private.media_assets`: rutas opacas y confirmación administrativa de
+  autorización. No se guardan imágenes ni documentos de consentimiento en Git.
+- `electoral_private.credentials`: hash SHA-256, caducidad, versión aleatoria,
+  confirmación de entrega y consumo. Nunca token original.
+- `electoral_private.participations`: elección e identidad; clave única por elector.
+- `ballot_box.ballots`: UUID aleatorio, elección y lista o NULL para blanco. No
+  contiene alumno, código, token, participación, timestamp ni secuencia compartida.
+- `electoral_private.admin_audit`: actor administrativo, acción, entidad, elección
+  y hora. Sin nombres de estudiantes, tokens, hashes ni preferencias de voto.
 
-Todas las tablas habilitan RLS. Los usuarios anónimos no tienen permisos. Los
-usuarios autenticados sin membresía administrativa no pueden leer el padrón ni
-cambiar sus registros. Los permisos administrativos de padrón quedan limitados
-además por triggers de estado que bloquean modificaciones tras abrir la elección.
-Las funciones privilegiadas fijan `search_path` y califican sus referencias;
-no confían en nombres de usuario ni roles enviados desde un formulario.
+No existe clave que una una papeleta con su elector. La participación y la
+papeleta se insertan en una transacción para garantizar integridad; esa misma
+transacción permite correlación a operadores con acceso a WAL/infraestructura.
 
-## Importación y corrección
+## Roles, RLS y SECURITY DEFINER
 
-La interfaz valida encabezados `codigo`, `nombre`, `grado`, `seccion`, códigos
-normalizados y únicos, nombres obligatorios y las 15 secciones. Admite solo
-`.xlsx`, una hoja, hasta 230 filas y 2 MB; rechaza fórmulas, enlaces y celdas
-estructuradas. Muestra errores y una vista previa antes de reemplazar el padrón.
-Con menos de 230 registros permite preparar el borrador, pero no simular su cierre.
-No importa campos de participación: un Excel no puede marcar a alguien como votante.
+Todas las tablas propias tienen RLS. Al finalizar las migraciones, los roles de
+aplicación no tienen acceso directo a esas tablas, tampoco el administrador de la
+web. `anon` no ejecuta RPC electorales. `authenticated` puede invocarlas, pero cada
+operación administrativa comprueba la membresía en `administrators` con `auth.uid()`.
+El voto y su estado se limitan al elector vinculado con esa identidad autenticada.
+El recuento requiere administrador y cierre oficial. No hay registro público de
+administradores ni uso de metadatos de perfil editables para conceder permisos.
 
-Para el backend futuro, `replace_electoral_roll` exige una sesión administrativa,
-valida los datos con restricciones SQL y reemplaza el padrón en una transacción.
-Cualquier error revierte también las eliminaciones. Acepta borradores incompletos,
-pero la apertura exige exactamente 230 electores con identidades vinculadas,
-credenciales vigentes y al menos una candidatura. Corregir un elector revoca su
-credencial anterior. La apertura y las correcciones bloquean la fila de elección
-para impedir que una importación pase después de abrirla.
+Los esquemas privados permanecen fuera de la Data API. Solo las RPC públicas
+controladas son la vía de gestión. Las funciones privilegiadas fijan
+`search_path=pg_catalog` y califican tablas y helpers; no interpolan datos de
+usuarios en SQL dinámico. El bloque de permisos usa firmas del catálogo, no entrada
+externa. Las nuevas funciones revocan EXECUTE de PUBLIC/anon y otorgan a
+`authenticated` únicamente después de definir las comprobaciones internas.
+Se revocan permisos explícitos de service_role sobre tablas/esquemas propios y RPC
+electorales; ninguna clave service_role se necesita ni se expone al navegador.
 
-## Emisión de credenciales preparada
+El dueño de tablas/funciones sigue teniendo acceso privilegiado. RLS no protege
+contra el propietario, superusuarios o intervenciones de infraestructura. No
+activar FORCE RLS sin rediseñar los helpers que dependen del acceso interno.
+La activación automática de ENABLE RLS es compatible y se simula en las pruebas;
+no conceder políticas permisivas de conveniencia. Las políticas restrictivas de
+Storage limitan el bucket electoral incluso ante una política permisiva previa.
 
-`src/lib/security/credentials.ts` debe ejecutarse exclusivamente en un servidor
-autorizado. Genera 32 bytes criptográficamente aleatorios (256 bits), codificados
-como token base64url de 43 caracteres. Solo se conserva su hash SHA-256; el token
-se entrega una vez por un canal individual y no se registra en logs, analítica,
-URLs, Git, archivos públicos o exportaciones generales. La caducidad es de 24 horas.
-La función `register_electoral_credential` exige administrador, identidad vinculada,
-elección en borrador y caducidad válida; una reemisión sustituye el hash anterior.
-El identificador del alumno o su DNI nunca son la contraseña.
+## Padrón y candidaturas
 
-No hay endpoint de emisión ni credenciales entregadas desde esta demostración.
-Antes del uso real se deben implementar sesión administrativa verificada, entrega
-individual, rotación previa a la apertura, recuperación supervisada y protección
-contra filtrado de tokens. No utilizar los tokens deterministas de fixtures de prueba.
+La importación XLSX valida una hoja, cuatro columnas (`codigo`, `nombre`, `grado`,
+`seccion`), hasta 230 registros y 2 MB. Rechaza fórmulas, enlaces y celdas complejas.
+Hay vista previa, normalización de códigos, detección de duplicados y validación
+de las 15 secciones. La web pública solo acepta la plantilla ficticia DEMO-NNN.
+Antes del parser se comprueba la expansión ZIP de forma incremental: máximo
+128 entradas, 2 MB por entrada y 8 MB en total, sin macros ni archivos binarios.
+El servidor conectado deberá repetir las validaciones, limitar tiempo/memoria y
+no confiar en comprobaciones realizadas únicamente en el navegador.
 
-## Prevención transaccional del voto duplicado
+La RPC `replace_electoral_roll` reemplaza el padrón en una transacción y revierte
+todo si una fila es inválida. Las correcciones revocan la credencial del registro.
+La elección se bloquea primero desde las RPC administrativas; triggers impiden
+correcciones e importaciones después de abrir. La apertura valida padrón completo,
+identidades vinculadas, entregas, listas y autorizaciones de medios.
+No se comprueba elegibilidad normativa de candidatos ni una composición legal
+específica del concejo: esas reglas deben aprobarse antes del uso institucional.
 
-`cast_electoral_vote` requiere identidad autenticada vinculada al elector y el token
-correcto, vigente y no consumido. Rechaza elecciones no abiertas y candidaturas
-ajenas. Obtiene un bloqueo compartido de la elección y bloqueos de fila sobre el
-elector y su credencial. En la misma transacción inserta participación, inserta
-la papeleta y consume la credencial. La clave primaria de participación añade una
-barrera de unicidad en base de datos. Un error en cualquier escritura revierte
-todas; dos envíos del mismo elector no pueden confirmarse ambos.
+## Credenciales y entrega individual
 
-La función no devuelve el identificador de la papeleta. La web de demostración
-**no llama a esta función**, y su selección local no cambia el padrón ni los
-resultados estáticos. Los contadores reales se obtendrían de
-`electoral_roll_summary`, disponible únicamente para administradores.
+`prepareElectoralCredential` usa 32 bytes aleatorios criptográficos: 256 bits,
+base64url de 43 caracteres. El servidor conserva únicamente SHA-256; la utilidad
+no realiza red ni escribe archivos. `issueCredential` registra el hash mediante
+un transporte RPC con sesión verificada y devuelve el token al flujo supervisado.
+No acepta roles o identidad del navegador como prueba de autorización.
 
-## Límites y pasos previos al uso real
+Cada emisión/recuperación crea una versión nueva, invalida el hash anterior y deja
+la entrega sin confirmar. `confirm_electoral_delivery` exige administrador y la
+versión vigente. Una confirmación antigua no puede activar una credencial nueva.
+La credencial no permite votar hasta confirmar la entrega. No existen exportaciones
+masivas de tokens ni endpoints públicos de emisión en la aplicación actual.
 
-La separación de tablas y RLS evita la unión directa identidad-papeleta por la
-aplicación. No proporciona anonimato criptográfico frente al operador de base de
-datos, correlación por WAL, transacciones, tráfico o registros de infraestructura.
-El acceso privilegiado y los respaldos requieren controles operativos y una
-revisión independiente del secreto electoral.
+La recuperación está permitida en borrador y elección abierta solo para quien no
+ha participado. Bloquea elección y elector, conserva la unicidad de participación
+incluso al competir con un voto y caduca en un máximo de 24 horas. No reabre una
+elección cerrada ni elimina participaciones. La expiración usa reloj real después
+de esperar bloqueos, no solo el inicio de la transacción.
 
-Antes de activar datos reales se necesita autorización expresa para conectar el
-servicio, desplegar la migración en un entorno aislado de pruebas, configurar Auth,
-asignar administradores por un operador, implementar las rutas de servidor y la
-entrega de credenciales, comprobar RLS con JWT reales, HTTPS, protección CSRF según
-el flujo de sesión, límites de solicitudes, auditoría sin identidad-papeleta,
-recuentos autorizados, copias de seguridad y política de retención. Los servidores
-no deben usar `service_role` para omitir la autorización de solicitudes de usuarios.
-Las pruebas PGlite verifican restricciones, roles, rollback y reenvíos, pero su
-conexión única serializa solicitudes: hace falta además una prueba de concurrencia
-con múltiples sesiones de PostgreSQL antes de una elección real.
+El flujo conectado deberá verificar al destinatario, entregar una vez por canal
+individual y confirmar la entrega desde una sesión autorizada. Nunca usar DNI,
+código escolar ni tokens deterministas de tests como contraseña. Un operador
+malicioso con capacidad de emisión sigue siendo un riesgo organizativo.
 
-No se guardan archivos Excel de prueba en el repositorio; se generan en memoria.
-`.gitignore` excluye hojas, CSV, carpetas privadas y exportaciones de credenciales.
-Estas exclusiones no sustituyen la revisión de cambios antes de subir a GitHub.
+## Voto, errores y concurrencia
+
+La confirmación de la interfaz precede a la operación de voto; se admite blanco.
+`cast_electoral_vote` exige elección abierta, identidad vinculada, token correcto,
+entregado y vigente, y ausencia de participación. Bloquea la elección FOR SHARE,
+luego elector y credencial FOR UPDATE. Inserta participación/papeleta y consume
+credencial en una única transacción. Una clave única de participación impide el
+segundo voto incluso con dos conexiones y dos solicitudes simultáneas.
+
+El cierre obtiene un bloqueo incompatible: espera los votos que ya entraron o
+impide los que llegan después. Recuperación y voto siguen el mismo orden de
+bloqueos y no reactivan electores que ya votaron. Los fallos intermedios revierten
+participación, papeleta y consumo.
+
+`submitVote` no reenvía preferencias automáticamente: consulta únicamente el
+estado de participación para resolver una respuesta perdida. Distingue registro,
+rechazo, fallo transitorio con posible reintento explícito y estado desconocido.
+Si devuelve registro tras consultar el estado, solo confirma participación, no
+el contenido de la papeleta. No retorna SQL, argumentos o excepciones originales
+a la interfaz. El llamador no
+debe registrar el cuerpo de solicitudes ni la combinación identidad-selección.
+
+## Recuento, empate y exportaciones
+
+`get_electoral_results` comprueba autorización y estado `closed` en SQL antes de
+leer papeletas, incluso para administradores de la aplicación. Devuelve agregados:
+votos por lista y blancos, electores, votantes, pendientes y porcentajes. Los
+porcentajes por opción incluyen blancos en el denominador; la participación usa
+el total de electores. Con cero votos, los porcentajes son cero. Los empates se
+representan como varias listas con mayor votación; cero preferencias no proclama
+una lista ganadora. Quórum, desempate y proclamación son reglas del comité.
+
+La interfaz muestra barras y genera PDF/Excel marcados como demostración solo
+tras su cierre simulado. Las cifras de ejemplo son independientes de la selección
+local. Las bibliotecas de exportación son funcionales, pero no constituyen actas
+oficiales firmadas ni una conexión al recuento remoto. El recuento SQL se prueba
+por separado con 230 votos ficticios.
+
+## Protección de fotografías y datos de menores
+
+El bucket `electoral-media` es privado, limita a JPEG/PNG/WebP y 5 MB. Las rutas
+usan UUID y no nombres de estudiantes. La utilidad de servidor
+`preparePrivateElectoralImage` valida formato/píxeles, redimensiona y convierte a
+WebP eliminando EXIF/GPS. Debe invocarse antes de subir medios reales; no existe
+un endpoint de subida conectado todavía.
+
+Solo administradores pueden gestionar medios en borrador. Los electores vinculados
+pueden leer medios autorizados en elección abierta/cerrada; anónimos y ajenos no.
+No hacer público el bucket ni usar URLs firmadas de larga duración. La autorización
+no evita capturas de imágenes por personas que ya tienen acceso. Las imágenes
+públicas del repositorio son referencias de adultos, no estudiantes del colegio.
+
+Minimizar los datos, documentar finalidad y autorización institucional, restringir
+personal autorizado, definir retención/eliminación y proteger respaldos. No poner
+Excel, fotos de menores, documentos de consentimiento, tokens o credenciales en
+GitHub. La evidencia de autorizaciones se custodia fuera del repositorio.
+
+## Límites del secreto y requisitos de conexión
+
+No hay anonimato criptográfico contra el operador de base de datos, servidor,
+WAL, logs, tráfico, respaldos o instrumentación que capture identidad y opción.
+Antes de la elección real se necesita revisión independiente de ese riesgo,
+segregación de funciones y autorización del comité. La auditoría de la aplicación
+no agrega preferencias, pero no controla el registro de proveedores externos.
+
+Orden de instalación y requisitos: `supabase/README.md`. Antes de conectar faltan
+Auth real, JWT verificados, sesiones de servidor, entrega individual real,
+configuración de logs sin cuerpos/argumentos de voto, límites de solicitudes,
+protección CSRF según el flujo, HTTPS, timeouts, respaldo/restauración y validación
+HTTP de Data API/Storage con roles reales de prueba. No asumir que el plan gratuito
+incluye todos los mecanismos de disponibilidad o recuperación necesarios.
+
+## Validación reproducible
+
+- `npm run test:unit`: validadores, credenciales, errores, exportaciones, medios y
+  regresión de la migración inicial en PGlite.
+- `npm run test:postgres`: PostgreSQL 17 desechable en Docker, conexiones con PID
+  distintos, doble voto simultáneo, cierre concurrente en ambos órdenes,
+  recuperación concurrente, entrega versionada, rollback, RLS automática,
+  Storage restrictivo y 230 votos ficticios con recuento completo.
+- `npm run test:smoke`: navegador, confirmación de voto, padrón, gestión, entrega
+  ficticia y exportaciones PDF/Excel.
+
+El runner PostgreSQL crea y elimina solo su propio contenedor; publica un puerto
+aleatorio exclusivamente en loopback. No acepta URLs externas ni bases cuyo nombre
+no sea `municipio_electoral_test`. Usa autenticación de confianza solo en ese
+contenedor local desechable. No reutilizar su configuración en producción.

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { CheckCircle2, ShieldCheck } from "lucide-react";
-import { lists } from "@/lib/demo";
+import { useElectoralDemo } from "./electoral-context";
 export function StudentAccess() {
   const [message, setMessage] = useState(false);
   return (
@@ -57,6 +57,8 @@ export function StudentAccess() {
   );
 }
 export function DemoVote() {
+  const { slates } = useElectoralDemo();
+  const [review, setReview] = useState(false);
   const [selected, setSelected] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   return (
@@ -71,7 +73,7 @@ export function DemoVote() {
           <h2>Recorrido de demostración completado</h2>
           <p>
             Seleccionaste:{" "}
-            {lists.find((l) => l.id === selected)?.name ?? "Voto en blanco"}.
+            {slates.find((l) => l.id === selected)?.name ?? "Voto en blanco"}.
           </p>
           <p>No se ha emitido ni registrado ningún voto oficial.</p>
           <button
@@ -79,45 +81,77 @@ export function DemoVote() {
             onClick={() => {
               setSelected("");
               setConfirmed(false);
+              setReview(false);
             }}
           >
             Reiniciar demostración
           </button>
         </div>
+      ) : review ? (
+        <div className="vote-review" aria-label="Confirmación de selección">
+          <h2>Revisa tu selección</h2>
+          <p>
+            {slates.find((l) => l.id === selected)?.name ?? "Voto en blanco"}
+          </p>
+          <p>
+            Esta demostración no registra votos. En el sistema conectado, la
+            confirmación enviará una única solicitud protegida; si se pierde la
+            respuesta, se consultará el estado antes de reintentar.
+          </p>
+          <div className="roll-actions">
+            <button
+              className="button secondary"
+              onClick={() => setReview(false)}
+            >
+              Volver a elegir
+            </button>
+            <button
+              className="button primary"
+              onClick={() => setConfirmed(true)}
+            >
+              Completar demostración
+            </button>
+          </div>
+        </div>
       ) : (
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (selected) setConfirmed(true);
+            if (selected) setReview(true);
           }}
         >
           <fieldset>
             <legend>Selecciona una opción ficticia</legend>
             <div className="vote-grid">
-              {lists.map((l) => (
-                <label
-                  key={l.id}
-                  className={`vote-option ${selected === l.id ? "selected" : ""}`}
-                >
-                  <input
-                    type="radio"
-                    name="candidate"
-                    value={l.id}
-                    checked={selected === l.id}
-                    onChange={() => setSelected(l.id)}
-                    required
-                  />
-                  <Image
-                    src={l.photo}
-                    alt={`Fotografía referencial de la candidatura ficticia ${l.candidate}`}
-                    width={100}
-                    height={100}
-                  />
-                  <span className="small-label">LISTA {l.id}</span>
-                  <strong>{l.name}</strong>
-                  <span>{l.candidate}</span>
-                </label>
-              ))}
+              {slates.map((l) => {
+                const mayor = l.candidates.find((c) => c.role === "alcalde")!;
+                return (
+                  <label
+                    key={l.id}
+                    className={`vote-option ${selected === l.id ? "selected" : ""}`}
+                  >
+                    <input
+                      type="radio"
+                      name="candidate"
+                      value={l.id}
+                      checked={selected === l.id}
+                      onChange={() => setSelected(l.id)}
+                      required
+                    />
+                    <Image
+                      src={mayor.photo}
+                      alt={`Fotografía referencial de la candidatura ficticia ${mayor.name}`}
+                      width={100}
+                      height={100}
+                    />
+                    <span className="small-label">
+                      LISTA {String(l.number).padStart(2, "0")}
+                    </span>
+                    <strong>{l.name}</strong>
+                    <span>{mayor.name}</span>
+                  </label>
+                );
+              })}
             </div>
             <label className="blank-vote">
               <input
