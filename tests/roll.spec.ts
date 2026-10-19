@@ -73,14 +73,12 @@ test("rechaza Excel inválido y datos no ficticios sin reemplazar el padrón", a
   sheet.addRow(["DEMO-001", "Estudiante ficticio 001", 1, "A"]);
   sheet.addRow(["DEMO-001", "Estudiante ficticio 002", 6, "D"]);
   const upload = async () =>
-    page
-      .getByLabel("Importar Excel ficticio")
-      .setInputFiles({
-        name: "invalido.xlsx",
-        mimeType:
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        buffer: Buffer.from(await workbook.xlsx.writeBuffer()),
-      });
+    page.getByLabel("Importar Excel ficticio").setInputFiles({
+      name: "invalido.xlsx",
+      mimeType:
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      buffer: Buffer.from(await workbook.xlsx.writeBuffer()),
+    });
   await upload();
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
     "Código duplicado",

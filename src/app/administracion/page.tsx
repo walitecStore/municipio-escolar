@@ -1,3 +1,5 @@
+import { ElectoralAdmin } from "@/components/electoral-admin";
+import { CredentialDemo } from "@/components/credential-demo";
 import { institution } from "@/lib/institution";
 import Link from "next/link";
 import { Users, Flag, CalendarDays, ArrowRight } from "lucide-react";
@@ -67,6 +69,8 @@ export default function Page() {
           ))}
         </section>
       </div>
+      <ElectoralAdmin />
+      <CredentialDemo />
     </>
   );
 }

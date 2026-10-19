@@ -1378,3 +1378,63 @@ button.text-link:disabled {
     flex-direction: column;
   }
 }
+.panel textarea {
+  width: 100%;
+  min-height: 110px;
+  padding: 12px;
+  border: 1px solid #d9e0e8;
+  border-radius: 6px;
+  font: inherit;
+  color: var(--ink);
+}
+.slate-form {
+  max-width: 850px;
+}
+.candidate-editor {
+  margin: 25px 0;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.candidate-editor legend {
+  padding: 0 10px;
+  margin: 0;
+}
+.candidate-editor > label {
+  display: block;
+  font-size: 12px;
+  margin: 15px 0;
+}
+.candidate-editor .roll-filters {
+  margin-top: 18px;
+}
+.credential-reveal {
+  padding: 20px;
+  background: #fff8e8;
+  border: 1px solid #eddfb8;
+  border-radius: 9px;
+  margin-top: 20px;
+}
+.credential-reveal input {
+  font-family: monospace;
+  letter-spacing: 0.5px;
+  margin: 10px 0 20px;
+}
+.vote-review {
+  padding: 20px;
+}
+.candidate-body h4 {
+  font-size: 12px;
+  color: #54798b;
+  margin-top: 20px;
+}
+.council-avatars {
+  display: flex;
+  gap: 7px;
+  margin: 10px 0 16px;
+}
+.council-avatars img {
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #eef3f8;
+}

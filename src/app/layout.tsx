@@ -1,3 +1,4 @@
+import { ElectoralProvider } from "@/components/electoral-context";
 import type { Metadata } from "next";
 import { Shell } from "@/components/shell";
 import "./globals.css";
@@ -15,7 +16,9 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body>
-        <Shell>{children}</Shell>
+        <ElectoralProvider>
+          <Shell>{children}</Shell>
+        </ElectoralProvider>
       </body>
     </html>
   );
