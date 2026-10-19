@@ -22,12 +22,19 @@ export function makeDemoResults(slates: Slate[]): ElectoralResults {
     })),
   };
 }
-export async function exportResultsExcel(results: ElectoralResults) {
+export async function exportResultsExcel(
+  results: ElectoralResults,
+  purpose: "test" | "official" = "test",
+) {
   if (results.state !== "closed") throw new Error("Elección no cerrada");
   const { default: ExcelJS } = await import("exceljs");
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("Resultados demostracion");
-  sheet.addRow(["DEMOSTRACIÓN - SIN VALIDEZ OFICIAL"]);
+  sheet.addRow([
+    purpose === "test"
+      ? "DEMOSTRACIÓN - SIN VALIDEZ OFICIAL"
+      : "RESULTADOS DE ELECCIÓN CERRADA - EXPORTACIÓN SIN FIRMA",
+  ]);
   sheet.addRow([
     "Electores",
     results.electors,
@@ -58,6 +65,7 @@ export async function exportResultsExcel(results: ElectoralResults) {
 export async function exportResultsPdf(
   results: ElectoralResults,
   school: string,
+  purpose: "test" | "official" = "test",
 ) {
   if (results.state !== "closed") throw new Error("Elección no cerrada");
   const { PDFDocument, StandardFonts, rgb } = await import("pdf-lib");
@@ -84,8 +92,18 @@ export async function exportResultsPdf(
       y -= size + 10;
     }
   }
-  line("ACTA ELECTORAL DE DEMOSTRACION", 16);
-  line("SIN VALIDEZ OFICIAL - DATOS FICTICIOS", 12);
+  line(
+    purpose === "test"
+      ? "ACTA ELECTORAL DE DEMOSTRACION"
+      : "ACTA DE RECUENTO ELECTORAL",
+    16,
+  );
+  line(
+    purpose === "test"
+      ? "SIN VALIDEZ OFICIAL - DATOS FICTICIOS"
+      : "BORRADOR PARA REVISION Y FIRMA DEL COMITE",
+    12,
+  );
   line(school);
   line(`Elección: ${results.election_id}`);
   line(

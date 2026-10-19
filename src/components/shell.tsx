@@ -23,6 +23,7 @@ const links = [
 ] as const;
 export function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
+  const connected = path.startsWith("/sistema");
   return (
     <>
       <a className="skip" href="#contenido">
@@ -50,6 +51,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
               {label}
             </Link>
           ))}
+          <Link
+            className={`nav-link ${connected ? "active" : ""}`}
+            href="/sistema"
+          >
+            <ShieldCheck size={19} />
+            Sistema con acceso seguro
+          </Link>
         </nav>
         <div className="sidebar-bottom">
           <div className="shield-circle">
@@ -74,9 +82,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </Link>
         </header>
         <div className="demo-banner">
-          <span className="demo-dot" /> ENTORNO DE DEMOSTRACIÓN{" "}
+          <span className="demo-dot" />{" "}
+          {connected
+            ? "ÁREA DE INTEGRACIÓN PROTEGIDA"
+            : "ENTORNO DE DEMOSTRACIÓN"}{" "}
           <span className="banner-text">
-            Datos ficticios. No se registran votos oficiales.
+            {connected
+              ? "Consulta el estado de configuración y activación dentro del sistema."
+              : "Datos ficticios. No se registran votos oficiales."}
           </span>
         </div>
         <main id="contenido">{children}</main>

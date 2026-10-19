@@ -1438,3 +1438,20 @@ button.text-link:disabled {
   object-fit: cover;
   border: 2px solid #eef3f8;
 }
+.panel form > label:not(.blank-vote) {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin: 18px 0 9px;
+}
+.panel form > label input,
+.panel form > label select {
+  margin-top: 7px;
+}
+.panel form > label:has(input[type="checkbox"]) {
+  display: flex;
+  gap: 12px;
+}
+.panel form + .panel {
+  margin-top: 22px;
+}

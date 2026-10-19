@@ -1,19 +1,16 @@
-# Integración pendiente
+# Integración Supabase
 
-La interfaz utiliza datos ficticios de `src/lib/demo.ts` y `src/lib/roll/`. No hay conexión a Supabase.
+La implementación conectada está en `src/lib/connected/` y `src/app/sistema/`.
+Usa el SDK oficial desde módulos server-only, cookies HttpOnly y `auth.getUser()`
+antes de consultar datos; la autorización y MFA se comprueban también por RPC.
+No se ha configurado ni contactado el proyecto Supabase real.
 
-Al incorporar el servicio: crear clientes de navegador y servidor por separado,
-validar sesiones en el servidor y configurar RLS y permisos antes de usar datos reales.
-La unicidad del voto y el secreto electoral requieren un diseño y auditoría específicos
-con transacciones de servidor; no se garantizan desde el navegador.
-Nunca exponer claves secretas ni service_role en variables NEXT_PUBLIC_.
-No sustituir el botón de demostración por una escritura directa a una tabla.
+`config.ts` es el helper público opcional legado de la demostración; no es el
+lector de la conexión real. Las variables actuales del servidor se describen en
+`.env.example` y `docs/ACTIVACION-SUPABASE.md`. No usar service_role ni claves
+secretas, ni introducirlas en variables NEXT_PUBLIC_.
 
-`config.ts` define la configuración pública opcional; devuelve `null` si faltan
-variables. No inicializa clientes ni realiza solicitudes. Ninguna página lo usa
-para autenticar usuarios o escribir datos.
-
-La migración preparada en `supabase/migrations/` contiene RLS, funciones de
-importación atómica y voto transaccional; se prueba solo en memoria.
-Consulta `docs/SEGURIDAD-ELECTORAL.md` antes de cualquier despliegue.
-No existe todavía integración de Auth o del padrón real con la interfaz.
+Los esquemas electorales permanecen privados. La secuencia completa de migraciones
+es 001, 002, 003 y 004; solo se han ejecutado en pruebas locales. No sustituir las
+RPC transaccionales por escrituras directas a tablas. El sitio de demostración
+original continúa funcionando sin credenciales ni persistencia remota.

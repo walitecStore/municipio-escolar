@@ -152,8 +152,8 @@ por separado con 230 votos ficticios.
 El bucket `electoral-media` es privado, limita a JPEG/PNG/WebP y 5 MB. Las rutas
 usan UUID y no nombres de estudiantes. La utilidad de servidor
 `preparePrivateElectoralImage` valida formato/píxeles, redimensiona y convierte a
-WebP eliminando EXIF/GPS. Debe invocarse antes de subir medios reales; no existe
-un endpoint de subida conectado todavía.
+WebP eliminando EXIF/GPS. La integración preparada en `/sistema` lo aplica antes
+de subir y al servir los archivos; el proyecto alojado aún no está configurado.
 
 Solo administradores pueden gestionar medios en borrador. Los electores vinculados
 pueden leer medios autorizados en elección abierta/cerrada; anónimos y ajenos no.
@@ -174,8 +174,9 @@ Antes de la elección real se necesita revisión independiente de ese riesgo,
 segregación de funciones y autorización del comité. La auditoría de la aplicación
 no agrega preferencias, pero no controla el registro de proveedores externos.
 
-Orden de instalación y requisitos: `supabase/README.md`. Antes de conectar faltan
-Auth real, JWT verificados, sesiones de servidor, entrega individual real,
+Orden de instalación y requisitos: `supabase/README.md` y
+`docs/ACTIVACION-SUPABASE.md`. Antes de activar el proyecto alojado falta validar
+Auth/JWT/TOTP, las sesiones y la entrega individual real,
 configuración de logs sin cuerpos/argumentos de voto, límites de solicitudes,
 protección CSRF según el flujo, HTTPS, timeouts, respaldo/restauración y validación
 HTTP de Data API/Storage con roles reales de prueba. No asumir que el plan gratuito
@@ -196,3 +197,31 @@ El runner PostgreSQL crea y elimina solo su propio contenedor; publica un puerto
 aleatorio exclusivamente en loopback. No acepta URLs externas ni bases cuyo nombre
 no sea `municipio_electoral_test`. Usa autenticación de confianza solo en ese
 contenedor local desechable. No reutilizar su configuración en producción.
+
+## Integración Next.js preparada tras la migración 004
+
+La implementación conectada está en `/sistema`, aislada del estado ficticio de la
+demostración. El servidor usa el SDK oficial con la clave publicable y la sesión
+del usuario; no necesita service_role. Cada consulta y mutación verifica al usuario
+con `auth.getUser()` y comprueba contexto y permisos mediante RPC; no confía solo
+en la cookie o en `getSession`. Las sesiones usan HttpOnly, SameSite Lax y Secure
+en HTTPS. Las páginas/medios son dinámicos, sin caché pública, sin indexación y con
+protección frente a incrustación y referencias entre sitios.
+
+La 004 exige AAL2 para personal en la propia autorización SQL, no solo en la
+interfaz. Las mutaciones tienen comprobación de origen canónico y validación del
+servidor. Los XLSX se procesan y validan de nuevo antes de la RPC transaccional.
+Los medios se sanean antes de subir y al descargar con una sesión autorizada;
+no se crean enlaces públicos o enlaces firmados que permitan eludir ese control.
+
+La creación desde la aplicación es exclusivamente de elecciones de pruebas.
+`purpose` y `security_approved` no tienen escritura por roles de aplicación; una
+elección oficial sin aprobación no puede abrirse. Los interruptores de entorno
+están apagados por defecto y no sustituyen esa barrera SQL. No se ha activado
+ninguna elección oficial. Si una elección ya está abierta, detenerla exige cerrar
+su estado en la base de datos; apagar una pantalla no cancela las RPC directas.
+
+La integración se ha probado contra simuladores locales y PostgreSQL, no contra
+el proyecto Supabase real. Requisitos pendientes y pasos exactos:
+`docs/ACTIVACION-SUPABASE.md`. La guía no autoriza el uso de información de menores
+ni certifica anonimato contra operadores o infraestructura.
