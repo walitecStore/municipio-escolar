@@ -14,6 +14,7 @@ export const recoveryBootstrap = `(() => {
       window.location.replace('/sistema/restablecer#' + safe.toString());
       return;
     }
+    if (fragment.get('error_code')) window.__electoralRecoveryExpired = true;
     const proof = {};
     if (recovery) for (const key of ['token_hash','access_token','refresh_token']) {
       if (fragment.get(key)) proof[key] = fragment.get(key);

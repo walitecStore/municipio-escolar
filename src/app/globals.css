@@ -1455,3 +1455,94 @@ button.text-link:disabled {
 .panel form + .panel {
   margin-top: 22px;
 }
+
+.recovery-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 28px 0 44px;
+}
+.recovery-card {
+  width: 100%;
+  max-width: 590px;
+  padding: clamp(22px, 5vw, 42px);
+  border-top: 4px solid #20a67b;
+}
+.recovery-card h1 {
+  font-size: clamp(23px, 4vw, 30px);
+  line-height: 1.25;
+}
+.recovery-emblem {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  background: #e9f7f1;
+  border-radius: 14px;
+  color: #12825f;
+  font-size: 26px;
+  margin-bottom: 22px;
+}
+.recovery-card .button {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 20px;
+  text-align: center;
+  justify-content: center;
+  white-space: normal;
+}
+.recovery-help {
+  font-size: 12px;
+  color: #587182;
+  line-height: 1.65;
+  margin-top: 12px;
+}
+.recovery-feedback {
+  padding: 15px;
+  border-radius: 10px;
+  background: #edf8f2;
+  color: #18573f;
+  border: 1px solid #c5e9d6;
+  margin: 18px 0 8px;
+  line-height: 1.6;
+}
+.recovery-feedback.error {
+  background: #fff5ee;
+  border-color: #f0d7be;
+  color: #7d4324;
+}
+.recovery-back {
+  display: inline-block;
+  margin-top: 24px;
+}
+.password-control {
+  margin-top: 18px;
+}
+.password-control > label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 9px;
+}
+.password-input-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+}
+.password-input-row input {
+  flex: 1;
+  min-width: 0;
+}
+.password-visibility {
+  border: 1px solid #d8e2e9;
+  background: #f4f8fc;
+  color: #19486a;
+  border-radius: 8px;
+  padding: 0 12px;
+  font: inherit;
+  cursor: pointer;
+}
+.password-visibility:focus-visible {
+  outline: 3px solid #3693c7;
+  outline-offset: 2px;
+}
