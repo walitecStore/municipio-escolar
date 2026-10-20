@@ -57,9 +57,14 @@ export async function requestRecoveryAction(
       return accepted;
     }
     const failure = recoveryFailure(error);
-    recoveryDiagnostic(failure, error.status);
+    recoveryDiagnostic(failure, error.status, error.code, error.name);
     if (failure === "account_neutral") return accepted;
-    return failure === "rate_limit"
+    return error.name === "AuthRetryableFetchError" || error.code === "fetch_error"
+      ? {
+          error: "No se pudo conectar con el servicio de autenticación. El enlace no fue enviado. El administrador debe revisar la conexión entre Vercel y Supabase.",
+          retryAfter: 60,
+        }
+      : failure === "rate_limit"
       ? {
           error:
             "Se alcanzó el límite de solicitudes del servicio. Espera antes de intentarlo de nuevo.",
