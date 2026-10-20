@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { institution } from "@/lib/institution";
 import {
   GraduationCap,
   House,
@@ -15,11 +16,11 @@ import {
 const links = [
   ["/", "Inicio", House],
   ["/estudiantes", "Acceso de estudiantes", Users],
-  ["/administracion", "Administración", LayoutDashboard],
-  ["/padron", "Padrón electoral", ListChecks],
+  ["/administracion", "Administración (demo)", LayoutDashboard],
+  ["/padron", "Padrón (demo)", ListChecks],
   ["/candidatos", "Listas y candidatos", Users],
-  ["/votacion", "Votación", Vote],
-  ["/resultados", "Resultados", ChartNoAxesCombined],
+  ["/votacion", "Simulador de votación", Vote],
+  ["/resultados", "Resultados (demo)", ChartNoAxesCombined],
 ] as const;
 export function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
@@ -38,7 +39,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             Municipio<span className="brand-sub">ESCOLAR · PERÚ</span>
           </span>
         </Link>
-        <div className="sidebar-label">ESPACIO ELECTORAL</div>
+        <div className="sidebar-label">RECORRIDO DE DEMOSTRACIÓN</div>
         <nav aria-label="Navegación principal">
           {links.map(([href, label, Icon]) => (
             <Link
@@ -51,12 +52,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
               {label}
             </Link>
           ))}
+          <div className="sidebar-label sidebar-label-secure">GESTIÓN REAL · ACCESO RESTRINGIDO</div>
           <Link
-            className={`nav-link ${connected ? "active" : ""}`}
+            className={`nav-link secure-nav-link ${connected ? "active" : ""}`}
             href="/sistema"
           >
             <ShieldCheck size={19} />
-            Sistema con acceso seguro
+            Abrir panel seguro
           </Link>
         </nav>
         <div className="sidebar-bottom">
@@ -74,11 +76,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <div className="workspace">
         <header className="topbar">
           <span>
-            Comunidad educativa <span className="top-divider">/</span>{" "}
+            {institution.name} <span className="top-divider">/</span>{" "}
             <strong>Elecciones escolares</strong>
           </span>
-          <Link href="/estudiantes" className="access-link">
-            Acceso de estudiantes <ArrowUpRight size={16} />
+          <Link href="/sistema/login" className="access-link">
+            Ingreso al sistema <ArrowUpRight size={16} />
           </Link>
         </header>
         <div className="demo-banner">
@@ -89,7 +91,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <span className="banner-text">
             {connected
               ? "Consulta el estado de configuración y activación dentro del sistema."
-              : "Datos ficticios. No se registran votos oficiales."}
+              : "Las pantallas de este menú usan datos ficticios. Para gestionar elecciones, entra al panel seguro."}
           </span>
         </div>
         <main id="contenido">{children}</main>
@@ -98,7 +100,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             © 2026 Municipio Escolar · Aprendemos a vivir en democracia.
           </span>
           <span>
-            Prototipo educativo <span className="green-dot" />
+            Entorno de pruebas <span className="green-dot" />
           </span>
         </footer>
       </div>
