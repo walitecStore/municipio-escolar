@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { ClipboardList, ShieldCheck, KeyRound, ArrowRight, AlertCircle } from "lucide-react";
 import { Heading } from "@/components/ui";
 import { integrationConfig } from "@/lib/connected/env";
 import { verifiedSession } from "@/lib/connected/session";
@@ -50,13 +51,26 @@ export default async function Page() {
       <form action={logoutAction}>
         <button className="button secondary">Cerrar sesión</button>
       </form>
+      <section className="panel section" aria-label="Estado de seguridad electoral">
+        <h2><ShieldCheck size={20} aria-hidden="true" /> Entorno electoral protegido</h2>
+        <p><AlertCircle size={16} aria-hidden="true" /> La votación oficial continúa deshabilitada. Utiliza identidades ficticias para las pruebas y no cargues todavía el padrón real.</p>
+      </section>
+      {isStaff(session) && (
+        <section className="section" aria-label="Acciones rápidas de administración">
+          <div className="section-header"><div><h2>¿Qué deseas hacer?</h2><p>Accesos directos a las tareas más importantes del administrador.</p></div></div>
+          <div className="quick-actions-grid">
+            <Link href="/sistema/nueva" className="quick-action-card"><ClipboardList size={26} aria-hidden="true" /><strong>Crear elección de prueba</strong><span>Prepara una elección sin activar votos oficiales.</span><ArrowRight size={18} aria-hidden="true" /></Link>
+            <Link href="/sistema/perfil" className="quick-action-card"><KeyRound size={26} aria-hidden="true" /><strong>Seguridad y contraseña</strong><span>Revisa tu perfil y cambia la contraseña de acceso.</span><ArrowRight size={18} aria-hidden="true" /></Link>
+          </div>
+        </section>
+      )}
       <section className="panel section">
         <h2>Elecciones disponibles</h2>
         {elections.map((e) => (
           <div className="admin-link" key={e.id}>
             <Link href={`/sistema/${e.id}`}>
               {e.school} · {e.year} · {e.state} ·{" "}
-              {e.purpose === "test" ? "Pruebas" : "Oficial"}
+              {e.purpose === "test" ? "Pruebas" : "Oficial"} <ArrowRight size={16} aria-hidden="true" />
             </Link>
           </div>
         ))}
