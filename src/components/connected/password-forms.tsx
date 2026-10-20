@@ -289,9 +289,17 @@ export function RecoveryForm() {
           {!available && !busy && <RequestRecoveryForm />}
         </>
       )}
-      <Link className="text-link recovery-back" href="/sistema/login">
-        Volver al inicio de sesión
-      </Link>
+      <div className="recovery-back">
+        <Link className="text-link" href="/sistema/login">
+          Volver al inicio de sesión
+        </Link>
+        <p className="recovery-help">
+          ¿Aún puedes entrar a tu cuenta y recuerdas tu contraseña actual? No necesitas recibir un correo: entra al panel y utiliza Perfil → Cambiar contraseña.
+        </p>
+        <Link className="text-link" href="/sistema/perfil">
+          Ir a cambiar mi contraseña desde el perfil
+        </Link>
+      </div>
     </>
   );
 }
