@@ -1,5 +1,8 @@
 # Integración Next.js–Supabase: activación manual y segura
 
+La recuperación y el cambio de contraseña están implementados. Configuración
+actual: [Recuperación de contraseña](RECUPERACION-CONTRASENA.md).
+
 ## Estado de esta entrega
 
 El código conecta Auth, Data API/RPC y Storage mediante el SDK oficial, desde el
@@ -72,9 +75,9 @@ En Authentication:
   redirección que realmente se utilicen; no usar comodines amplios en producción.
 - Habilitar TOTP MFA y los límites de solicitudes de autenticación disponibles.
 - Configurar correo, recuperación administrativa y políticas de contraseña según
-  el entorno. La aplicación actual usa contraseña y TOTP; no implementa OAuth,
-  enlaces mágicos ni callbacks de recuperación pública. No configurarlos como si
-  estuvieran implementados.
+  el entorno. La aplicación usa contraseña, TOTP y recuperación mediante correo
+  en `/sistema/restablecer`; configurar la Redirect URL y plantilla descritas en
+  la guía de recuperación. OAuth y acceso por enlaces mágicos no se implementan.
 
 Crear primero cuentas de prueba de personal desde Authentication > Users, sin
 información de alumnos reales. Deben estar confirmadas mediante el procedimiento

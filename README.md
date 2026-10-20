@@ -148,3 +148,6 @@ PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:connected
 Esta suite ejecuta Next.js y el SDK con un servicio HTTP local de prueba, sin
 credenciales reales. La validación final contra Auth y Storage alojados sigue
 pendiente de la configuración y autorización manual.
+
+Cambio de contraseña del personal en `/sistema/perfil` y recuperación en
+`/sistema/restablecer`: [configuración exacta de Auth y pruebas](docs/RECUPERACION-CONTRASENA.md).
