@@ -8,37 +8,76 @@ import {
   recoveryClient,
   verifiedRecovery,
   clearRecoveryCookies,
+  hasRecoverySession,
 } from "@/lib/connected/recovery";
+import {
+  reserveRecoveryRequest,
+  recoveryDiagnostic,
+} from "@/lib/connected/recovery-request";
+import { recoveryFailure } from "@/lib/connected/recovery-request-policy";
 export type PasswordState = {
+  retryAfter?: number;
+  expired?: boolean;
   error?: string;
   message?: string;
   ready?: boolean;
   mfa?: boolean;
   success?: boolean;
 };
-const expired =
-  "El enlace no es válido, ya fue utilizado o venció. Solicita otro enlace.";
+const expired = "Este enlace ha vencido o ya fue utilizado. Solicita uno nuevo";
 const success = "Tu contraseña se actualizó correctamente";
 export async function requestRecoveryAction(
   _: PasswordState,
   form: FormData,
 ): Promise<PasswordState> {
+  const accepted = {
+    message:
+      "Si el correo está registrado, recibirás un enlace para restablecer tu contraseña",
+    retryAfter: 60,
+  };
   try {
     const config = await mutationOrigin();
     const email = String(form.get("email") ?? "").trim();
-    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254) {
-      const client = await recoveryClient();
-      await client.auth.resetPasswordForEmail(email, {
-        redirectTo: `${config.origin}/sistema/restablecer`,
-      });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254)
+      return { error: "Ingresa un correo electrónico válido." };
+    const wait = await reserveRecoveryRequest(email);
+    if (wait) {
+      recoveryDiagnostic("local_limit");
+      return {
+        error: "Espera antes de volver a solicitar la recuperación.",
+        retryAfter: wait,
+      };
     }
+    const client = await recoveryClient();
+    const { error } = await client.auth.resetPasswordForEmail(email, {
+      redirectTo: `${config.origin}/sistema/restablecer`,
+    });
+    if (!error) {
+      recoveryDiagnostic("accepted");
+      return accepted;
+    }
+    const failure = recoveryFailure(error);
+    recoveryDiagnostic(failure, error.status);
+    if (failure === "account_neutral") return accepted;
+    return failure === "rate_limit"
+      ? {
+          error:
+            "Se alcanzó el límite de solicitudes del servicio. Espera antes de intentarlo de nuevo.",
+          retryAfter: 60,
+        }
+      : {
+          error:
+            "No se pudo procesar la recuperación. Inténtalo más tarde o contacta al responsable para revisar el servicio de correo.",
+          retryAfter: 60,
+        };
   } catch {
-    /* Generic response avoids disclosing accounts and provider errors. */
+    recoveryDiagnostic("unavailable");
+    return {
+      error:
+        "La recuperación no está disponible en este momento. Inténtalo más tarde o contacta al responsable.",
+      retryAfter: 60,
+    };
   }
-  return {
-    message:
-      "Si la cuenta existe y puede recuperar su acceso, recibirá un enlace. Revisa tu correo o inténtalo más tarde.",
-  };
 }
 export async function verifyRecoveryAction(
   _: PasswordState,
@@ -75,7 +114,7 @@ export async function verifyRecoveryAction(
     return { ready: true, mfa: !!verified.factor };
   } catch {
     await clearRecoveryCookies();
-    return { error: expired };
+    return { error: expired, expired: true };
   }
 }
 export async function exchangeRecoveryCodeAction(
@@ -93,16 +132,17 @@ export async function exchangeRecoveryCodeAction(
     return { ready: true, mfa: !!verified.factor };
   } catch {
     await clearRecoveryCookies();
-    return { error: expired };
+    return { error: expired, expired: true };
   }
 }
 export async function recoveryStatusAction(): Promise<PasswordState> {
   try {
+    if (!(await hasRecoverySession())) return {};
     await mutationOrigin();
     const verified = await verifiedRecovery();
     return { ready: true, mfa: !!verified.factor };
   } catch {
-    return { error: expired };
+    return { error: expired, expired: true };
   }
 }
 export async function resetPasswordAction(
@@ -141,12 +181,13 @@ export async function resetPasswordAction(
       success: true,
       message:
         success +
+        ". Ahora puedes iniciar sesión con tu nueva contraseña" +
         (signedOut.error
           ? ". La revocación de otras sesiones no pudo confirmarse; contacta al responsable."
           : ""),
     };
   } catch {
-    return { error: expired };
+    return { error: expired, expired: true };
   }
 }
 export async function changePasswordAction(

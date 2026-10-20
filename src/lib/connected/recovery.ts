@@ -68,3 +68,12 @@ export async function verifiedRecovery() {
     factor: factors.data.totp.find((factor) => factor.status === "verified"),
   };
 }
+
+export async function hasRecoverySession() {
+  return (await cookies())
+    .getAll()
+    .some(
+      ({ name, value }) =>
+        /^electoral-recovery(?:\.\d+)?$/.test(name) && !!value,
+    );
+}

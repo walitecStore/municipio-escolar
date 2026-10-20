@@ -40,6 +40,8 @@ const passwordHash = (value: string) =>
 const passwords = new Map<string, string>();
 let passwordUpdates = 0;
 let recoverRequests = 0;
+let recoveryProvider = "none";
+let recoveryRedirectValid = false;
 let challenge = "";
 const recoveryTokens = new Map<string, Claims>();
 function recoveryClaims(email = "admin@example.test", age = 0): Claims {
@@ -213,6 +215,8 @@ const server = http.createServer(async (req, res) => {
       passwords.clear();
       passwordUpdates = 0;
       recoverRequests = 0;
+      recoveryProvider = "none";
+      recoveryRedirectValid = false;
       challenge = "";
       recoveryTokens.clear();
       students.splice(0, students.length, ...structuredClone(initialStudents));
@@ -221,6 +225,8 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.pathname === "/__test/scenario") {
       const data = JSON.parse((await body(req)).toString());
+      if (typeof data.recoveryProvider === "string")
+        recoveryProvider = data.recoveryProvider;
       if (data.state) phase = data.state;
       if (data.purpose) purpose = data.purpose;
       if (typeof data.approved === "boolean") approved = data.approved;
@@ -232,6 +238,7 @@ const server = http.createServer(async (req, res) => {
         calls,
         passwordUpdates,
         recoverRequests,
+        recoveryRedirectValid,
         userReads,
         participation,
         ballots: ballots.length,
@@ -258,6 +265,35 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === "/auth/v1/recover") {
       const data = JSON.parse((await body(req)).toString());
       recoverRequests++;
+      recoveryRedirectValid =
+        url.searchParams.get("redirect_to") ===
+        "http://127.0.0.1:3102/sistema/restablecer";
+      if (recoveryProvider === "smtp")
+        return send(
+          {
+            message: "internal-smtp-sensitive-details",
+            error_code: "unexpected_failure",
+          },
+          500,
+        );
+      if (recoveryProvider === "rate")
+        return send(
+          { message: "Too many", error_code: "over_email_send_rate_limit" },
+          429,
+        );
+      if (recoveryProvider === "configuration")
+        return send(
+          {
+            message: "private-provider-detail",
+            error_code: "email_address_not_authorized",
+          },
+          403,
+        );
+      if (recoveryProvider === "account")
+        return send(
+          { message: "Private account info", error_code: "user_not_found" },
+          400,
+        );
       challenge = data.code_challenge ?? "";
       return send({});
     }

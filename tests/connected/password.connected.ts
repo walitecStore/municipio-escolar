@@ -8,9 +8,15 @@ async function save(
   await page
     .getByLabel("Nueva contraseña", { exact: true })
     .fill("Frase-ficticia2026!");
-  await page.getByLabel("Confirmar nueva contraseña").fill(confirmation);
+  await page
+    .getByLabel("Confirmar nueva contraseña", { exact: true })
+    .fill(confirmation);
   if (otp) await page.getByLabel("Código actual del autenticador").fill(otp);
-  await page.getByRole("button", { name: "Guardar contraseña" }).click();
+  await page
+    .getByRole("button", {
+      name: /Guardar contraseña|GUARDAR NUEVA CONTRASEÑA/,
+    })
+    .click();
 }
 test.beforeEach(async ({ request }) => {
   await request.post(`${fixture}/__test/reset`);
@@ -47,6 +53,29 @@ test("token recovery de un uso, coincidencia y cambio sin conceder panel; nueva 
   await panel.goto("/sistema");
   await expect(panel).toHaveURL(/\/sistema\/login$/);
   await panel.close();
+  await expect(
+    page.getByRole("heading", { name: "CREAR NUEVA CONTRASEÑA" }),
+  ).toBeVisible();
+  await page
+    .getByLabel("Nueva contraseña", { exact: true })
+    .fill("abcdefghijklmnop");
+  await page
+    .getByLabel("Confirmar nueva contraseña", { exact: true })
+    .fill("abcdefghijklmnop");
+  await page
+    .getByRole("button", { name: "Mostrar nueva contraseña", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Nueva contraseña", { exact: true }),
+  ).toHaveAttribute("type", "text");
+  await page
+    .getByRole("button", { name: "Ocultar nueva contraseña", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Nueva contraseña", { exact: true }),
+  ).toHaveAttribute("type", "password");
+  await page.getByRole("button", { name: "GUARDAR NUEVA CONTRASEÑA" }).click();
+  await expect(page.locator("main [role=alert]")).toContainText("mayúscula");
   await save(page, "Otra-frase2026!");
   await expect(page.locator("main [role=alert]")).toContainText("no coinciden");
   await save(page);
@@ -63,7 +92,7 @@ test("token recovery de un uso, coincidencia y cambio sin conceder panel; nueva 
     .getByRole("button", { name: "Verificar enlace de recuperación" })
     .click();
   await expect(page.locator("main [role=alert]")).toContainText(
-    "Solicita otro",
+    "Solicita uno nuevo",
   );
   await page.goto("/sistema/login");
   await page
@@ -121,7 +150,7 @@ test("enlace implícito legado a Site URL se procesa sin dejar tokens en URL; re
       .getByRole("button", { name: "Verificar enlace de recuperación" })
       .click();
     await expect(page.locator("main [role=alert]")).toContainText(
-      "Solicita otro",
+      "Solicita uno nuevo",
     );
     await expect(page).toHaveURL(/\/sistema\/restablecer$/);
   }
@@ -146,11 +175,13 @@ test("solicitud genérica y canje PKCE usa cookie verifier del mismo navegador",
   request,
 }) => {
   await page.goto("/sistema/restablecer");
+  await page.getByLabel("Correo electrónico").fill("admin@example.test");
   await page
-    .getByLabel("Correo de la cuenta autorizada")
-    .fill("admin@example.test");
-  await page.getByRole("button", { name: "Solicitar otro enlace" }).click();
-  await expect(page.getByRole("status")).toContainText("Si la cuenta existe");
+    .getByRole("button", { name: "RESTABLECER CONTRASEÑA", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toContainText(
+    "Si el correo está registrado",
+  );
   await page.goto("/sistema/restablecer?code=local-pkce-code");
   await page
     .getByRole("button", { name: "Verificar enlace de recuperación" })
@@ -212,10 +243,10 @@ test("enlace vencido, sesión revocada y usuario ajeno no permiten actualizar; n
 }) => {
   await page.goto("/#error=access_denied&error_code=otp_expired");
   await expect(
-    page.getByRole("heading", { name: "Restablecer contraseña" }),
+    page.getByRole("heading", { name: "RESTABLECER CONTRASEÑA" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Solicitar otro enlace" }),
+    page.getByRole("button", { name: "SOLICITAR NUEVO ENLACE" }),
   ).toBeVisible();
   for (const email of ["student@example.test", "admin@example.test"]) {
     const { hash } = await (
@@ -239,7 +270,7 @@ test("enlace vencido, sesión revocada y usuario ajeno no permiten actualizar; n
       .getByRole("button", { name: "Verificar enlace de recuperación" })
       .click();
     await expect(page.locator("main [role=alert]")).toContainText(
-      "Solicita otro",
+      "Solicita uno nuevo",
     );
     await expect(
       page.getByLabel("Nueva contraseña", { exact: true }),
@@ -261,7 +292,7 @@ test("PKCE sin verifier y JWT alterado fallan cerrados", async ({
     .getByRole("button", { name: "Verificar enlace de recuperación" })
     .click();
   await expect(page.locator("main [role=alert]")).toContainText(
-    "Solicita otro",
+    "Solicita uno nuevo",
   );
   const tokens = await (
     await request.post(`${fixture}/__test/recovery`, {
@@ -276,7 +307,7 @@ test("PKCE sin verifier y JWT alterado fallan cerrados", async ({
     .getByRole("button", { name: "Verificar enlace de recuperación" })
     .click();
   await expect(page.locator("main [role=alert]")).toContainText(
-    "Solicita otro",
+    "Solicita uno nuevo",
   );
   expect(
     (await (await request.get(`${fixture}/__test/state`)).json())

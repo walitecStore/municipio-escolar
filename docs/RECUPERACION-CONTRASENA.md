@@ -37,14 +37,20 @@ Esta funcionalidad no agrega variables secretas ni requiere service_role.
 
 En **Authentication → Email Templates → Reset Password**, usar un enlace como:
 
+Asunto: **Restablecimiento de contraseña - Municipio Escolar**.
+
 ```html
-<h2>Restablecer contraseña</h2>
-<p>Si solicitaste recuperar tu cuenta, abre este enlace:</p>
+<h2>Restablecimiento de contraseña - Municipio Escolar</h2>
+<p>
+  Has solicitado restablecer la contraseña de tu cuenta en la plataforma de
+  Elecciones del Municipio Escolar.
+</p>
+<p>Para continuar, haz clic en el siguiente botón:</p>
 <a
   href="{{ .SiteURL }}/sistema/restablecer#token_hash={{ .TokenHash }}&amp;type=recovery"
-  >Restablecer contraseña</a
+  >CONFIRMAR RESTABLECIMIENTO DE CONTRASEÑA</a
 >
-<p>No compartas este enlace. Si no lo solicitaste, ignora este correo.</p>
+<p>Si no solicitaste este cambio, puedes ignorar este mensaje.</p>
 ```
 
 El fragmento después de `#` no se envía al servidor en la petición HTTP. El
@@ -155,3 +161,96 @@ local. Verifican hash de un uso, cookies aisladas, coincidencia, MFA obligatorio
 PKCE, enlace implícito, rechazo de OTP antiguo y cambio reciente desde perfil.
 No certifican entrega de correo ni Auth/MFA del Supabase alojado. No se utilizaron
 credenciales ni estudiantes reales y no se conectó al proyecto Supabase real.
+
+## Diagnosticar un correo que no llega
+
+La entrada directa a `/sistema/restablecer` ahora muestra el formulario de correo
+sin afirmar que un enlace venció. Solo un enlace rechazado o una sesión de
+recuperación caducada muestran «Este enlace ha vencido o ya fue utilizado.
+Solicita uno nuevo» y el botón «SOLICITAR NUEVO ENLACE». El envío aceptado por Auth
+muestra «Si el correo está registrado, recibirás un enlace para restablecer tu
+contraseña»; esto no certifica entrega al buzón.
+
+La acción inspecciona el error de `resetPasswordForEmail`. Un fallo conocido del
+servicio muestra un aviso de indisponibilidad, y un 429 indica límite de envío;
+ninguno muestra confirmación de envío. Las condiciones referidas a existencia de
+cuenta conservan la respuesta neutral. Nunca se presenta al usuario el mensaje
+original del proveedor.
+
+En los logs de Vercel, filtrar por `password_recovery_request`. Solo se registran
+`event`, una categoría `outcome` de una lista fija y, si está disponible, el estado
+HTTP numérico. No se registran correos, IP, hashes de límites, contraseñas, tokens,
+cookies, códigos, URLs ni errores originales.
+
+| outcome           | Interpretación y siguiente comprobación                                                     |
+| ----------------- | ------------------------------------------------------------------------------------------- |
+| `accepted`        | Auth aceptó la solicitud; revisar entrega por el proveedor. No significa que llegó a Gmail. |
+| `account_neutral` | Respuesta neutral, sin revelar existencia de cuenta.                                        |
+| `local_limit`     | La defensa local impidió llamar a Auth; esperar el tiempo indicado.                         |
+| `rate_limit`      | Auth limitó solicitudes; revisar cuotas y ventana de envío.                                 |
+| `configuration`   | Revisar proveedor Email/SMTP, remitente y destinatarios permitidos.                         |
+| `mail_service`    | Fallo 5xx; revisar Auth Logs y estado de SMTP/proveedor.                                    |
+| `provider`        | Rechazo no clasificado; revisar Auth Logs de forma privada, sin copiar datos sensibles.     |
+| `unavailable`     | Revisar configuración de servidor, origen canónico y conectividad.                          |
+
+Pasos manuales del responsable, en el proyecto correcto:
+
+1. En **Authentication → Logs** (o Logs Explorer → Auth), revisar el evento de la
+   hora del intento. No exportar ni compartir cuerpos, enlaces, tokens, correos o
+   IP; anotar solo categoría, estado y hora para el diagnóstico.
+2. En **Authentication → Rate Limits**, comprobar límites de correo y tiempo
+   mínimo entre solicitudes. No aumentar cuotas a ciegas ni enviar repetidamente
+   para probar. Los valores dependen del plan y de si se usa SMTP propio.
+3. Si se usa el servicio de correo predeterminado de Supabase, comprobar sus
+   restricciones actuales de destinatarios y cuotas: puede limitar envíos a
+   direcciones autorizadas del equipo del proyecto. No asumir que enviará a
+   cualquier dirección Gmail aunque esa dirección figure en Auth.
+4. Si esas restricciones impiden el uso previsto, configurar un proveedor SMTP
+   autorizado en **Authentication → Email / SMTP Settings**. Revisar host, puerto,
+   TLS, remitente, dominio verificado, SPF/DKIM/DMARC y cuotas del proveedor. Guardar
+   sus credenciales únicamente en Supabase; no en Git, navegador ni chat. Este
+   trabajo no configura ni contrata SMTP ni solicita esas credenciales.
+5. En el panel del proveedor de correo, comprobar aceptación, entrega, rebotes,
+   supresiones y restricciones del destinatario. Auth 200 por sí solo no prueba
+   entrega. Revisar Spam/Promociones en Gmail y evitar seguimiento de clics que
+   pueda reescribir o consumir enlaces.
+6. Confirmar Site URL, Redirect URL y la plantilla Recovery indicadas arriba.
+   No cambiar Email/Password, TOTP, usuarios, roles ni SQL para resolver correo.
+7. Realizar un solo intento controlado con una cuenta de prueba autorizada, esperar
+   el plazo y comprobar el nuevo enlace desde Gmail. No usar datos de estudiantes.
+
+No se accedió a los logs privados ni a la configuración SMTP de Supabase alojado;
+por tanto, no se atribuye el fallo real a una causa concreta sin evidencia.
+
+## Límites de frecuencia y alcance en Vercel
+
+Antes de llamar a Auth se reserva capacidad de forma síncrona para evitar carreras:
+una solicitud por correo cada 60 segundos, cinco por IP en 15 minutos y 30 por
+instancia en un minuto. Se cuentan también los intentos que fallen. Los correos
+se comparan sin distinguir mayúsculas; solo se conservan identificadores HMAC con
+sal efímera en memoria. Las entradas caducan y el tamaño está acotado. El cliente
+muestra una espera y deshabilita el botón; recargar no evita la reserva del servidor
+en esa instancia. Vercel usa su cabecera de IP de plataforma; sin ella se usa un
+cupo compartido conservador, sin confiar en cabeceras arbitrarias del cliente.
+
+**La memoria de una función serverless no es un límite global persistente:** cambia
+entre instancias y se pierde al reiniciar. Mantener los límites compartidos de
+Supabase Auth activos, incluido el tiempo mínimo de reenvío, y configurar protección
+de frecuencia en la frontera de Vercel/proxy según las opciones del plan. Aplicarla
+al POST de `/sistema/restablecer`, sin inspeccionar ni registrar cuerpos. No asumir
+que una opción de Firewall de un plan superior está incluida en el plan actual.
+Una defensa distribuida adicional requiere infraestructura compartida autorizada;
+no se añadieron Redis, servicios externos ni tablas electorales para este cambio.
+
+## Publicación y validación
+
+1. Fusionar el PR revisado en `main` y comprobar que Vercel publica ese commit.
+   Si se necesita un redeploy manual, hacerlo solo en `municipio-escolar`.
+2. Verificar en Production `APP_ORIGIN` exacto y las variables server-only de
+   Supabase ya existentes; no hacen falta claves nuevas para esta corrección.
+3. Mantener `ELECTORAL_RPC_VOTING_ENABLED=false` y
+   `ELECTORAL_OFFICIAL_VOTING_ENABLED=false`. No abrir elecciones.
+4. Guardar la plantilla Recovery y las URLs en Supabase, sin volver a ejecutar SQL.
+5. Validar entrada sin enlace, error de envío, espera, correo real, enlace nuevo,
+   cambio de contraseña y nuevo login con MFA. Las pruebas locales simulan Auth y
+   SMTP: no certifican entrega real en Gmail ni SMTP alojado.
