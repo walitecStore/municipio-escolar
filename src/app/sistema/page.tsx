@@ -42,6 +42,11 @@ export default async function Page() {
         title="Panel electoral conectado"
         description={`Perfil autorizado: ${session.role === "administrator" ? "Administrador" : session.role === "committee" ? "Comité electoral" : "Elector"}. Los permisos se verifican también en PostgreSQL.`}
       />
+      {isStaff(session) && (
+        <Link className="button secondary" href="/sistema/perfil">
+          Perfil · Cambiar contraseña
+        </Link>
+      )}
       <form action={logoutAction}>
         <button className="button secondary">Cerrar sesión</button>
       </form>

@@ -20,6 +20,7 @@ type Claims = {
   aal: string;
   email: string;
   exp: number;
+  amr?: { method: string; timestamp: number }[];
 };
 let phase = "draft",
   purpose = "test",
@@ -34,6 +35,23 @@ let media = new Map<string, Buffer>();
 let mediaAuthorization = new Set<string>();
 let rejectUsers = false;
 const factors = new Map<string, string>();
+const passwordHash = (value: string) =>
+  createHash("sha256").update(value).digest("hex");
+const passwords = new Map<string, string>();
+let passwordUpdates = 0;
+let recoverRequests = 0;
+let challenge = "";
+const recoveryTokens = new Map<string, Claims>();
+function recoveryClaims(email = "admin@example.test", age = 0): Claims {
+  return {
+    sub: profiles[email].id,
+    email,
+    role: "authenticated",
+    aal: "aal1",
+    exp: Math.floor(Date.now() / 1000) + 3600,
+    amr: [{ method: "otp", timestamp: Math.floor(Date.now() / 1000) - age }],
+  };
+}
 const profiles: Record<string, { id: string; role: string }> = {
   "admin@example.test": {
     id: "00000000-0000-4000-8000-000000000001",
@@ -192,6 +210,11 @@ const server = http.createServer(async (req, res) => {
       mediaAuthorization = new Set();
       rejectUsers = false;
       factors.clear();
+      passwords.clear();
+      passwordUpdates = 0;
+      recoverRequests = 0;
+      challenge = "";
+      recoveryTokens.clear();
       students.splice(0, students.length, ...structuredClone(initialStudents));
       lists = structuredClone(initialLists);
       return send({ ok: true });
@@ -207,18 +230,71 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === "/__test/state")
       return send({
         calls,
+        passwordUpdates,
+        recoverRequests,
         userReads,
         participation,
         ballots: ballots.length,
         media: media.size,
       });
+    if (url.pathname === "/__test/recovery") {
+      const data = JSON.parse((await body(req)).toString() || "{}");
+      const c = recoveryClaims(data.email, data.age ?? 0);
+      if (data.mfa) factors.set(c.email, "verified");
+      const hash = randomBytes(32).toString("hex");
+      recoveryTokens.set(hash, c);
+      if (data.mode === "implicit") return send(authTokens(c));
+      if (data.mode === "ordinary")
+        return send(
+          authTokens({
+            ...c,
+            amr: [
+              { method: "password", timestamp: Math.floor(Date.now() / 1000) },
+            ],
+          }),
+        );
+      return send({ hash });
+    }
+    if (url.pathname === "/auth/v1/recover") {
+      const data = JSON.parse((await body(req)).toString());
+      recoverRequests++;
+      challenge = data.code_challenge ?? "";
+      return send({});
+    }
+    if (url.pathname === "/auth/v1/verify") {
+      const data = JSON.parse((await body(req)).toString());
+      const recovery = recoveryTokens.get(data.token_hash);
+      if (!recovery || data.type !== "recovery")
+        return send({ message: "Expired", error_code: "otp_expired" }, 403);
+      recoveryTokens.delete(data.token_hash);
+      return send(authTokens(recovery));
+    }
     const c = claimsFrom(
       (req.headers.authorization ?? "").replace(/^Bearer /, ""),
     );
     if (url.pathname === "/auth/v1/token") {
       const data = JSON.parse((await body(req)).toString());
+      if (url.searchParams.get("grant_type") === "pkce") {
+        if (
+          data.auth_code !== "local-pkce-code" ||
+          !challenge ||
+          createHash("sha256")
+            .update(data.code_verifier ?? "")
+            .digest("base64url") !== challenge
+        )
+          return send({ message: "Invalid code" }, 400);
+        challenge = "";
+        const recovery = recoveryClaims();
+        recovery.amr![0].method = "recovery";
+        return send(authTokens(recovery));
+      }
       const profile = profiles[String(data.email)];
-      if (!profile) return send({ message: "Invalid credentials" }, 400);
+      if (
+        !profile ||
+        passwordHash(data.password ?? "") !==
+          (passwords.get(data.email) ?? passwordHash("solo-prueba-local"))
+      )
+        return send({ message: "Invalid credentials" }, 400);
       return send(
         authTokens({
           sub: profile.id,
@@ -232,6 +308,15 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === "/auth/v1/user") {
       userReads++;
       if (!c || rejectUsers) return send({ message: "Session invalid" }, 401);
+      if (req.method === "PUT") {
+        const data = JSON.parse((await body(req)).toString());
+        if (factors.get(c.email) === "verified" && c.aal !== "aal2")
+          return send({ message: "AAL2 required" }, 403);
+        if (passwordHash(data.password ?? "") === passwords.get(c.email))
+          return send({ message: "Same password" }, 400);
+        passwords.set(c.email, passwordHash(data.password));
+        passwordUpdates++;
+      }
       return send(user(c));
     }
     if (url.pathname === "/auth/v1/logout") {
@@ -247,8 +332,7 @@ const server = http.createServer(async (req, res) => {
       });
     if (url.pathname.endsWith("/verify")) {
       const data = JSON.parse((await body(req)).toString());
-      if (!/^\d{6}$/.test(data.code))
-        return send({ message: "Invalid code" }, 400);
+      if (data.code !== "123456") return send({ message: "Invalid code" }, 400);
       factors.set(c.email, "verified");
       return send(authTokens({ ...c, aal: "aal2" }));
     }
