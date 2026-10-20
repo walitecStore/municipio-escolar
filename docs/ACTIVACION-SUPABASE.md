@@ -1,5 +1,9 @@
 # Integración Next.js–Supabase: activación manual y segura
 
+Para la aplicación ya publicada y las migraciones que el responsable confirmó
+ejecutadas, seguir [Conexión final de Vercel](VERCEL-CONEXION-FINAL.md). No repetir
+las etapas instaladas. Las referencias siguientes describen la instalación original.
+
 ## Estado de esta entrega
 
 El código conecta Auth, Data API/RPC y Storage mediante el SDK oficial, desde el
