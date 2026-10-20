@@ -23,6 +23,8 @@ export async function reserveRecoveryRequest(email: string) {
 export function recoveryDiagnostic(
   outcome: RecoveryFailure | "accepted" | "local_limit" | "unavailable",
   status?: number,
+  code?: string,
+  errorName?: string,
 ) {
   // Deliberately no raw exception, code, email, IP, URL, cookie or request body.
   console.info(
@@ -31,6 +33,12 @@ export function recoveryDiagnostic(
       outcome,
       ...(Number.isInteger(status) && status! >= 100 && status! <= 599
         ? { provider_status: status }
+        : {}),
+      ...(["AuthApiError", "AuthRetryableFetchError", "AuthUnknownError"].includes(errorName ?? "")
+        ? { error_class: errorName }
+        : {}),
+      ...(["over_email_send_rate_limit", "over_request_rate_limit", "email_address_not_authorized", "email_provider_disabled", "smtp_admin_email_required", "unexpected_failure", "fetch_error"].includes(code ?? "")
+        ? { provider_code: code }
         : {}),
     }),
   );
