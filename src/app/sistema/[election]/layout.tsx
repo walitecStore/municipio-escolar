@@ -1,6 +1,13 @@
-import Link from "next/link";
 import { protectedElection } from "@/lib/connected/session";
 import { isStaff } from "@/lib/connected/policy";
+import { electionModules } from "@/lib/election-navigation";
+import { ElectionNavigation } from "@/components/connected/election-navigation";
+import {
+  CalendarDays,
+  ShieldCheck,
+  LockKeyhole,
+  CheckCircle2,
+} from "lucide-react";
 export default async function Layout({
   children,
   params,
@@ -10,49 +17,44 @@ export default async function Layout({
 }) {
   const id = (await params).election;
   const { session, election } = await protectedElection(id);
-  const links = isStaff(session)
-    ? [
-        ["", "Resumen"],
-        ["/configuracion", "Configuración"],
-        ["/padron", "Padrón"],
-        ["/listas", "Listas y candidatos"],
-        ["/credenciales", "Credenciales"],
-        ["/presencial", "Mesas · DNI"],
-        ["/media", "Fotografías"],
-        ["/resultados", "Resultados"],
-      ]
-    : [
-        ["", "Mi elección"],
-        ["/listas", "Candidaturas"],
-        ["/votar", "Votación"],
-      ];
+  const state =
+    election.state === "draft"
+      ? "Borrador"
+      : election.state === "open"
+        ? "Abierta"
+        : "Cerrada";
   return (
     <>
-      <p className="notice">
-        {election.purpose === "test"
-          ? "PRUEBAS · Solo datos ficticios"
-          : "INSTITUCIONAL · Preparación oficial"}{" "}
-        · {election.year} · Estado:{" "}
-        {election.state === "draft"
-          ? "Borrador"
-          : election.state === "open"
-            ? "Abierta"
-            : "Cerrada"}
-        {election.purpose === "official" && !election.security_approved
-          ? " · Aprobación de seguridad pendiente"
-          : ""}
-      </p>
-      <nav className="election-subnav" aria-label="Navegación de la elección">
-        {links.map(([suffix, label]) => (
-          <Link
-            className="button secondary"
-            href={`/sistema/${id}${suffix}`}
-            key={suffix}
-          >
-            {label}
-          </Link>
-        ))}
-      </nav>
+      <div className="election-context">
+        <span className={`state-pill state-${election.state}`}>
+          {election.state === "closed" ? (
+            <CheckCircle2 size={15} />
+          ) : election.state === "open" ? (
+            <ShieldCheck size={15} />
+          ) : (
+            <LockKeyhole size={15} />
+          )}
+          Estado: {state}
+        </span>
+        <span>
+          <CalendarDays size={16} aria-hidden="true" />
+          {election.year}
+        </span>
+        {election.purpose === "test" ? (
+          <span>PRUEBAS · Solo datos ficticios</span>
+        ) : (
+          <span>Elección institucional</span>
+        )}
+        {election.purpose === "official" && !election.security_approved && (
+          <span className="approval-pending">
+            Aprobación de seguridad pendiente
+          </span>
+        )}
+      </div>
+      <ElectionNavigation
+        id={id}
+        modules={electionModules(election, isStaff(session))}
+      />
       {children}
     </>
   );

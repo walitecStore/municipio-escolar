@@ -197,7 +197,7 @@ test("cambio desde perfil exige contraseña actual y MFA reciente aun con AAL2",
   await page.getByRole("button", { name: "Preparar verificación MFA" }).click();
   await page.getByLabel("Código del autenticador").fill("123456");
   await page.getByRole("button", { name: "Verificar segundo factor" }).click();
-  await page.getByRole("link", { name: "Perfil · Cambiar contraseña" }).click();
+  await page.getByRole("link", { name: "Perfil y seguridad" }).click();
   await page.getByLabel("Contraseña actual").fill("incorrecta");
   await save(page, "Frase-ficticia2026!", "123456");
   await expect(page.locator("main [role=alert]")).toContainText(
