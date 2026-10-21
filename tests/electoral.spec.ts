@@ -28,16 +28,16 @@ test("gestiona listas y regidores, comparte cambios y bloquea edición al abrir"
     .getByRole("link", { name: "Listas y candidatos", exact: true })
     .click();
   await expect(page.locator("main")).toContainText("Lista ficticia de prueba");
-  await page.getByRole("link", { name: "Administración", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Administración (demo)", exact: true })
+    .click();
   await page
     .getByRole("button", { name: "Simular apertura electoral" })
     .click();
   await expect(
     page.getByRole("button", { name: "Editar lista 4", exact: true }),
   ).toBeDisabled();
-  await page
-    .getByRole("link", { name: "Padrón electoral", exact: true })
-    .click();
+  await page.getByRole("link", { name: "Padrón (demo)", exact: true }).click();
   await expect(page.getByLabel("Importar Excel ficticio")).toBeDisabled();
   await expect(
     page.getByRole("button", { name: "Corregir DEMO-001", exact: true }),

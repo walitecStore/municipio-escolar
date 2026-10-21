@@ -89,6 +89,7 @@ before(async () => {
     "202610190002_complete_electoral_system.sql",
     "202610190003_private_electoral_media.sql",
     "202610190004_secure_application_sessions.sql",
+    "202610210005_institutional_drafts.sql",
   ])
     await pool.query(await readFile(`supabase/migrations/${name}`, "utf8"));
   await pool.query("insert into auth.users values($1)", [admin]);
@@ -787,5 +788,128 @@ test("sesión y comité requieren AAL2; elección oficial sin aprobación perman
   await pool.query(
     "update electoral_private.administrators set role='administrator' where user_id=$1",
     [admin],
+  );
+});
+
+test("borrador institucional: convive con prueba del mismo año, exige AAL2 y no aprueba ni abre votos", async () => {
+  const f = await fixture(false);
+  const testRow = (
+    await pool.query(
+      "select year,school from electoral_private.elections where id=$1",
+      [f.election],
+    )
+  ).rows[0];
+  for (const role of ["anon", "service_role"])
+    await assert.rejects(
+      session(
+        null,
+        (c) =>
+          c.query("select public.create_institutional_election($1)", [
+            testRow.year,
+          ]),
+        role,
+      ),
+      /permission denied/,
+    );
+  await assert.rejects(
+    session(f.users[0], (c) =>
+      c.query("select public.create_institutional_election($1)", [
+        testRow.year,
+      ]),
+    ),
+    /Acceso denegado/,
+  );
+  await assert.rejects(
+    session(admin, async (c) => {
+      await c.query("select set_config('request.jwt.claims',$1,true)", [
+        JSON.stringify({ aal: "aal1" }),
+      ]);
+      return c.query("select public.create_institutional_election($1)", [
+        testRow.year,
+      ]);
+    }),
+    /Acceso denegado/,
+  );
+  const id = (
+    await session(admin, (c) =>
+      c.query("select public.create_institutional_election($1) id", [
+        testRow.year,
+      ]),
+    )
+  ).rows[0].id;
+  const row = (
+    await pool.query("select * from electoral_private.elections where id=$1", [
+      id,
+    ])
+  ).rows[0];
+  assert.equal(row.state, "draft");
+  assert.equal(row.purpose, "official");
+  assert.equal(row.security_approved, false);
+  assert.equal(row.school, "I.E. ESTEBAN PAVLETICH TRUJILLO");
+  assert.equal(row.expected_students, 230);
+  assert.equal(
+    (
+      await pool.query(
+        "select count(*)::int n from electoral_private.elections where year=$1 and school=$2",
+        [testRow.year, testRow.school],
+      )
+    ).rows[0].n,
+    2,
+  );
+  assert.equal(
+    (
+      await pool.query(
+        "select count(*)::int n from electoral_private.electors where election_id=$1",
+        [f.election],
+      )
+    ).rows[0].n,
+    230,
+  );
+  assert.equal(
+    (
+      await pool.query(
+        "select action,actor_id from electoral_private.admin_audit where election_id=$1 and action='institutional_draft_created'",
+        [id],
+      )
+    ).rows[0].action,
+    "institutional_draft_created",
+  );
+  await assert.rejects(
+    session(admin, (c) =>
+      c.query("select public.create_institutional_election($1)", [
+        testRow.year,
+      ]),
+    ),
+    /duplicate key/,
+  );
+  await assert.rejects(
+    session(admin, (c) =>
+      c.query("select public.create_institutional_election(2025)"),
+    ),
+    /Año inválido/,
+  );
+  await assert.rejects(
+    session(admin, (c) =>
+      c.query("select public.manage_electoral_election($1,$2,'open')", [
+        id,
+        testRow.year,
+      ]),
+    ),
+    /Se requieren 230 electores/,
+  );
+  await assert.rejects(
+    session(admin, (c) =>
+      c.query("select public.get_electoral_results($1)", [id]),
+    ),
+    /solo después/,
+  );
+  await assert.rejects(
+    session(admin, (c) =>
+      c.query(
+        "update electoral_private.elections set security_approved=true where id=$1",
+        [id],
+      ),
+    ),
+    /permission denied/,
   );
 });

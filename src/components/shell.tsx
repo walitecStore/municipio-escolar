@@ -14,7 +14,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 const links = [
-  ["/", "Inicio", House],
+  ["/demostracion", "Inicio (demo)", House],
   ["/estudiantes", "Acceso de estudiantes", Users],
   ["/administracion", "Administración (demo)", LayoutDashboard],
   ["/padron", "Padrón (demo)", ListChecks],
@@ -25,6 +25,7 @@ const links = [
 export function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const connected = path.startsWith("/sistema");
+  const demo = links.some(([href]) => href === path);
   return (
     <>
       <a className="skip" href="#contenido">
@@ -39,28 +40,40 @@ export function Shell({ children }: { children: React.ReactNode }) {
             Municipio<span className="brand-sub">ESCOLAR · PERÚ</span>
           </span>
         </Link>
-        <div className="sidebar-label">RECORRIDO DE DEMOSTRACIÓN</div>
-        <nav aria-label="Navegación principal">
-          {links.map(([href, label, Icon]) => (
-            <Link
-              key={href}
-              href={href}
-              className={`nav-link ${path === href ? "active" : ""}`}
-              aria-current={path === href ? "page" : undefined}
-            >
-              <Icon size={19} />
-              {label}
-            </Link>
-          ))}
-          <div className="sidebar-label sidebar-label-secure">GESTIÓN REAL · ACCESO RESTRINGIDO</div>
+        <div className="sidebar-label">PLATAFORMA INSTITUCIONAL</div>
+        <nav aria-label="Navegación institucional">
+          <Link className={`nav-link ${path === "/" ? "active" : ""}`} href="/">
+            <House size={19} />
+            Inicio institucional
+          </Link>
           <Link
-            className={`nav-link secure-nav-link ${connected ? "active" : ""}`}
+            className={`nav-link ${connected ? "active" : ""}`}
             href="/sistema"
           >
             <ShieldCheck size={19} />
-            Abrir panel seguro
+            Panel electoral
+          </Link>
+          <Link className="nav-link" href="/sistema/login">
+            <Users size={19} />
+            Acceso al sistema
           </Link>
         </nav>
+        <details className="demo-navigation" open={demo}>
+          <summary>Recorrido de demostración</summary>
+          <nav aria-label="Navegación principal">
+            {links.map(([href, label, Icon]) => (
+              <Link
+                key={href}
+                href={href}
+                className={`nav-link ${path === href ? "active" : ""}`}
+                aria-current={path === href ? "page" : undefined}
+              >
+                <Icon size={19} />
+                {label}
+              </Link>
+            ))}
+          </nav>
+        </details>
         <div className="sidebar-bottom">
           <div className="shield-circle">
             <ShieldCheck size={22} />
@@ -84,14 +97,18 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </Link>
         </header>
         <div className="demo-banner">
-          <span className="demo-dot" />{" "}
-          {connected
-            ? "ÁREA DE INTEGRACIÓN PROTEGIDA"
-            : "ENTORNO DE DEMOSTRACIÓN"}{" "}
+          <span className="demo-dot" />
+          {demo
+            ? "ENTORNO DE DEMOSTRACIÓN"
+            : connected
+              ? "GESTIÓN ELECTORAL PROTEGIDA"
+              : "PLATAFORMA INSTITUCIONAL"}
           <span className="banner-text">
-            {connected
-              ? "Consulta el estado de configuración y activación dentro del sistema."
-              : "Las pantallas de este menú usan datos ficticios. Para gestionar elecciones, entra al panel seguro."}
+            {demo
+              ? "Datos ficticios. No se registran votos oficiales."
+              : connected
+                ? "Acceso autorizado. La modalidad y el estado se indican dentro de cada elección."
+                : institution.name}
           </span>
         </div>
         <main id="contenido">{children}</main>
@@ -100,7 +117,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
             © 2026 Municipio Escolar · Aprendemos a vivir en democracia.
           </span>
           <span>
-            Entorno de pruebas <span className="green-dot" />
+            {demo ? "Demostración" : "Acceso institucional"}{" "}
+            <span className="green-dot" />
           </span>
         </footer>
       </div>

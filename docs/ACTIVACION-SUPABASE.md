@@ -1,3 +1,5 @@
+Para preparar la gestión institucional y una elección oficial en borrador sin abrirla, consultar [Gestión institucional](GESTION-INSTITUCIONAL.md), incluida la migración adicional 005.
+
 # Integración Next.js–Supabase: activación manual y segura
 
 La recuperación y el cambio de contraseña están implementados. Configuración

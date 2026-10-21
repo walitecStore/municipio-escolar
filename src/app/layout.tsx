@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     template: "%s | Municipio Escolar",
   },
   description:
-    "Demostración de participación democrática escolar. Todos los datos son ficticios.",
+    "Plataforma institucional de elecciones del Municipio Escolar de la I.E. ESTEBAN PAVLETICH TRUJILLO.",
 };
 export default function RootLayout({
   children,

@@ -68,10 +68,16 @@ function OperationForm({
 }
 export function ConnectedCreateElection() {
   return (
-    <OperationForm
-      operation={createElectionAction}
-      label="Crear borrador de pruebas"
-    >
+    <OperationForm operation={createElectionAction} label="Crear borrador">
+      <label htmlFor="election-purpose">Modalidad</label>
+      <select id="election-purpose" name="purpose" defaultValue="official">
+        <option value="official">Institucional · preparación oficial</option>
+        <option value="test">Pruebas · solo datos ficticios</option>
+      </select>
+      <label className="blank-vote">
+        <input type="checkbox" name="confirm" value="yes" required />
+        Confirmo que crear el borrador no autoriza ni abre la votación.
+      </label>
       <label htmlFor="election-year">Año electoral</label>
       <input
         id="election-year"
@@ -87,9 +93,18 @@ export function ConnectedCreateElection() {
 }
 export function ConnectedElectionState({
   election,
+  canOpen = false,
 }: {
   election: ConnectedElection;
+  canOpen?: boolean;
 }) {
+  if (election.state === "draft" && !canOpen)
+    return (
+      <p className="notice">
+        Borrador en preparación. La apertura está bloqueada hasta completar la
+        aprobación y habilitación correspondiente.
+      </p>
+    );
   if (election.state === "closed")
     return (
       <p className="notice">
@@ -130,7 +145,10 @@ export function ConnectedImportRoll({
     >
       <p>
         Una hoja XLSX con codigo, nombre, grado, seccion. Máximo 230 filas y 2
-        MB. Solo plantilla ficticia en modo pruebas.
+        MB.{" "}
+        {election.purpose === "test"
+          ? "Solo plantilla ficticia en modo pruebas."
+          : "Padrón institucional: solo datos autorizados; no compartir archivos ni credenciales."}
       </p>
       <input
         aria-label="Excel para PostgreSQL"

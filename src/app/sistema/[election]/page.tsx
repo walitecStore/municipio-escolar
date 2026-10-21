@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { protectedElection } from "@/lib/connected/session";
+import { integrationConfig } from "@/lib/connected/env";
+import { openingAllowed } from "@/lib/connected/policy";
 import { isStaff } from "@/lib/connected/policy";
 import { ConnectedElectionState } from "@/components/connected/forms";
 export default async function Page({
@@ -9,12 +11,15 @@ export default async function Page({
 }) {
   const id = (await params).election;
   const { election, session } = await protectedElection(id);
+  const config = integrationConfig();
   return (
     <section className="panel">
       <h1>{election.school}</h1>
       <p>
         {election.year} · Estado: {election.state} · Modo:{" "}
-        {election.purpose === "test" ? "Pruebas" : "Oficial"}
+        {election.purpose === "test"
+          ? "Pruebas · datos ficticios"
+          : "Institucional · preparación oficial"}
       </p>
       <div className="roll-actions">
         {isStaff(session) &&
@@ -37,7 +42,12 @@ export default async function Page({
           Pantalla de votación
         </Link>
       </div>
-      {isStaff(session) && <ConnectedElectionState election={election} />}
+      {isStaff(session) && (
+        <ConnectedElectionState
+          election={election}
+          canOpen={!!config && openingAllowed(config, election)}
+        />
+      )}
     </section>
   );
 }

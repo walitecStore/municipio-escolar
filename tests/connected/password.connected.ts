@@ -29,9 +29,6 @@ test("token recovery de un uso, coincidencia y cambio sin conceder panel; nueva 
     await request.post(`${fixture}/__test/recovery`)
   ).json();
   await page.goto(`/sistema/restablecer#type=recovery&token_hash=${hash}`);
-  await page
-    .getByRole("button", { name: "Verificar enlace de recuperación" })
-    .click();
   await expect(
     page.getByLabel("Nueva contraseña", { exact: true }),
   ).toBeVisible();
@@ -88,9 +85,6 @@ test("token recovery de un uso, coincidencia y cambio sin conceder panel; nueva 
     ),
   ).toBe(false);
   await page.goto(`/sistema/restablecer#type=recovery&token_hash=${hash}`);
-  await page
-    .getByRole("button", { name: "Verificar enlace de recuperación" })
-    .click();
   await expect(page.locator("main [role=alert]")).toContainText(
     "Solicita uno nuevo",
   );
@@ -116,9 +110,6 @@ test("sesión de recuperación con factor existente exige TOTP nuevo y permanece
     await request.post(`${fixture}/__test/recovery`, { data: { mfa: true } })
   ).json();
   await page.goto(`/sistema/restablecer#type=recovery&token_hash=${hash}`);
-  await page
-    .getByRole("button", { name: "Verificar enlace de recuperación" })
-    .click();
   await save(page, "Frase-ficticia2026!", "000000");
   await expect(page.locator("main [role=alert]")).toContainText("MFA inválido");
   expect(
@@ -146,11 +137,8 @@ test("enlace implícito legado a Site URL se procesa sin dejar tokens en URL; re
     await page.goto(
       `/#type=recovery&access_token=${tokens.access_token}&refresh_token=${tokens.refresh_token}`,
     );
-    await page
-      .getByRole("button", { name: "Verificar enlace de recuperación" })
-      .click();
     await expect(page.locator("main [role=alert]")).toContainText(
-      "Solicita uno nuevo",
+      "No se pudo completar la verificación",
     );
     await expect(page).toHaveURL(/\/sistema\/restablecer$/);
   }
@@ -162,9 +150,6 @@ test("enlace implícito legado a Site URL se procesa sin dejar tokens en URL; re
   await page.goto(
     `/#type=recovery&access_token=${tokens.access_token}&refresh_token=${tokens.refresh_token}`,
   );
-  await page
-    .getByRole("button", { name: "Verificar enlace de recuperación" })
-    .click();
   await expect(
     page.getByLabel("Nueva contraseña", { exact: true }),
   ).toBeVisible();
@@ -183,9 +168,6 @@ test("solicitud genérica y canje PKCE usa cookie verifier del mismo navegador",
     "Si el correo está registrado",
   );
   await page.goto("/sistema/restablecer?code=local-pkce-code");
-  await page
-    .getByRole("button", { name: "Verificar enlace de recuperación" })
-    .click();
   await expect(
     page.getByLabel("Nueva contraseña", { exact: true }),
   ).toBeVisible();
@@ -266,11 +248,8 @@ test("enlace vencido, sesión revocada y usuario ajeno no permiten actualizar; n
     };
     page.on("request", inspect);
     await page.goto(`/sistema/restablecer#type=recovery&token_hash=${hash}`);
-    await page
-      .getByRole("button", { name: "Verificar enlace de recuperación" })
-      .click();
     await expect(page.locator("main [role=alert]")).toContainText(
-      "Solicita uno nuevo",
+      "No se pudo completar la verificación",
     );
     await expect(
       page.getByLabel("Nueva contraseña", { exact: true }),
@@ -288,9 +267,6 @@ test("PKCE sin verifier y JWT alterado fallan cerrados", async ({
   request,
 }) => {
   await page.goto("/sistema/restablecer?code=local-pkce-code");
-  await page
-    .getByRole("button", { name: "Verificar enlace de recuperación" })
-    .click();
   await expect(page.locator("main [role=alert]")).toContainText(
     "Solicita uno nuevo",
   );
@@ -303,9 +279,6 @@ test("PKCE sin verifier y JWT alterado fallan cerrados", async ({
   await page.goto(
     `/sistema/restablecer#type=recovery&access_token=${header}.${payload}.invalid&refresh_token=${tokens.refresh_token}`,
   );
-  await page
-    .getByRole("button", { name: "Verificar enlace de recuperación" })
-    .click();
   await expect(page.locator("main [role=alert]")).toContainText(
     "Solicita uno nuevo",
   );

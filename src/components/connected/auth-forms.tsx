@@ -46,9 +46,17 @@ export function MfaForm() {
   return (
     <>
       <p>
-        Administradores y comité requieren autenticación de dos factores. La
-        base de datos también comprueba AAL2.
+        Para entrar al panel, confirma tu identidad con tu aplicación
+        autenticadora. Si es tu primera vez, configura el código QR. No
+        compartas el QR ni sus códigos.
       </p>
+      <ol>
+        <li>Pulsa «Preparar verificación MFA».</li>
+        <li>Si aparece un QR, escanéalo con tu aplicación autenticadora.</li>
+        <li>
+          Introduce el código de seis dígitos y verifica el segundo factor.
+        </li>
+      </ol>
       <button
         className="button primary"
         disabled={busy || pending}

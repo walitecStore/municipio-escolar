@@ -1,5 +1,6 @@
 import { createHmac, randomBytes } from "node:crypto";
 export type RecoveryFailure =
+  | "connection"
   | "rate_limit"
   | "mail_service"
   | "configuration"
@@ -7,6 +8,7 @@ export type RecoveryFailure =
   | "account_neutral";
 export function recoveryFailure(error: {
   status?: number;
+  name?: string;
   code?: string;
 }): RecoveryFailure {
   if (
@@ -26,6 +28,11 @@ export function recoveryFailure(error: {
   )
     return "configuration";
   if ((error.status ?? 0) >= 500) return "mail_service";
+  if (
+    (error.status ?? 0) === 0 &&
+    (error.name === "AuthRetryableFetchError" || error.code === "fetch_error")
+  )
+    return "connection";
   return "provider";
 }
 /** Bounded per-instance defense; Supabase and the edge must enforce shared limits. */

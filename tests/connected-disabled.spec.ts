@@ -22,6 +22,31 @@ test("integración sin configurar permanece cerrada y conserva la demostración"
   expect(image.status()).toBe(404);
   await page.goto("/");
   await expect(
+    page.getByRole("heading", { name: "Elecciones del Municipio Escolar" }),
+  ).toBeVisible();
+});
+
+test("portada institucional y demostración quedan separadas", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "230 estudiantes previstos" }),
+  ).toBeVisible();
+  await expect(page.locator("main")).not.toContainText("Estudiante ficticio");
+  await page
+    .getByRole("link", { name: "Ingresar al sistema", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", {
+      name: "Integración pendiente de configuración",
+    }),
+  ).toBeVisible();
+  await page.goto("/demostracion");
+  await expect(
     page.getByRole("heading", { name: "Tu escuela. Tu voz. Tu elección." }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Datos ficticios. No se registran votos oficiales."),
   ).toBeVisible();
 });
