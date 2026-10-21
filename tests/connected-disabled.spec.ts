@@ -31,7 +31,7 @@ test("portada institucional y demostración quedan separadas", async ({
 }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "230 estudiantes previstos" }),
+    page.getByRole("heading", { name: "Instituciones independientes" }),
   ).toBeVisible();
   await expect(page.locator("main")).not.toContainText("Estudiante ficticio");
   await page

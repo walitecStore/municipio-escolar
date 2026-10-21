@@ -27,6 +27,8 @@ export default async function Page({
             ["padron", "Padrón"],
             ["listas", "Listas y candidatos"],
             ["credenciales", "Credenciales"],
+            ["configuracion", "Configuración"],
+            ["presencial", "Mesas · DNI"],
             ["resultados", "Resultados"],
             ["media", "Fotografías privadas"],
           ].map(([path, title]) => (
@@ -38,7 +40,12 @@ export default async function Page({
               {title}
             </Link>
           ))}
-        <Link className="button primary" href={`/sistema/${id}/votar`}>
+        <Link
+          className="button primary"
+          href={
+            election.supervised_dni ? "/sistema/mesa" : `/sistema/${id}/votar`
+          }
+        >
           Pantalla de votación
         </Link>
       </div>

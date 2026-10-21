@@ -2,6 +2,7 @@ import { Unzip, UnzipInflate } from "fflate";
 import ExcelJS from "exceljs";
 import { demoStudents, validateRows, type ImportResult } from "./model";
 export const MAX_FILE_BYTES = 2 * 1024 * 1024;
+export class RollImportError extends Error {}
 const headers = ["codigo", "nombre", "grado", "seccion"];
 
 /** Validate expanded bytes incrementally before ExcelJS parses any workbook. */
@@ -10,7 +11,9 @@ function validateArchive(buffer: ArrayBuffer) {
     total = 0;
   const limit = 2 * 1024 * 1024;
   const fail = () =>
-    new Error("Excel inválido o supera los límites de tamaño expandido.");
+    new RollImportError(
+      "Excel inválido o supera los límites de tamaño expandido.",
+    );
   try {
     const zip = new Unzip((file) => {
       if (
@@ -44,15 +47,18 @@ function validateArchive(buffer: ArrayBuffer) {
 
 export async function readRollExcel(
   buffer: ArrayBuffer,
-  options: { allowDni?: boolean } = {},
+  options: { allowDni?: boolean; maxRows?: number } = {},
 ): Promise<ImportResult> {
+  const maximum = options.maxRows ?? 230;
+  if (!Number.isInteger(maximum) || maximum < 1 || maximum > 10000)
+    throw new RollImportError("Capacidad institucional inválida.");
   if (buffer.byteLength > MAX_FILE_BYTES)
-    throw new Error("El archivo supera 2 MB.");
+    throw new RollImportError("El archivo supera 2 MB.");
   validateArchive(buffer);
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer);
   if (workbook.worksheets.length !== 1)
-    throw new Error("El libro debe contener una sola hoja.");
+    throw new RollImportError("El libro debe contener una sola hoja.");
   const sheet = workbook.worksheets[0];
   const dni =
     String(sheet.getRow(1).getCell(1).value ?? "")
@@ -69,13 +75,15 @@ export async function readRollExcel(
           .toLowerCase() === h,
     )
   )
-    throw new Error(
+    throw new RollImportError(
       options.allowDni
         ? "Encabezados: dni, nombre, grado, seccion (DNI como texto de 8 dígitos)."
         : "Encabezados requeridos: codigo, nombre, grado, seccion.",
     );
-  if (sheet.rowCount > 231)
-    throw new Error("Máximo 230 estudiantes; elimina filas adicionales.");
+  if (sheet.rowCount > maximum + 1)
+    throw new RollImportError(
+      `Máximo ${maximum} estudiantes; elimina filas adicionales.`,
+    );
   const rows: unknown[][] = [];
   for (let number = 2; number <= sheet.rowCount; number++) {
     const row = sheet.getRow(number);
@@ -83,7 +91,7 @@ export async function readRollExcel(
       [1, 2, 3, 4].map((column) => {
         const value = row.getCell(column).value;
         if (value !== null && typeof value === "object")
-          throw new Error(
+          throw new RollImportError(
             `Fila ${number}: no se permiten fórmulas, enlaces ni celdas enriquecidas.`,
           );
         if (
@@ -91,14 +99,14 @@ export async function readRollExcel(
           column === 1 &&
           (typeof value !== "string" || !/^\d{8}$/.test(value.trim()))
         )
-          throw new Error(
+          throw new RollImportError(
             `Fila ${number}: DNI obligatorio como texto de exactamente 8 dígitos; conserva ceros iniciales.`,
           );
         return value;
       }),
     );
   }
-  return validateRows(rows);
+  return validateRows(rows, maximum);
 }
 export async function makeDemoWorkbook(): Promise<ArrayBuffer> {
   const workbook = new ExcelJS.Workbook();

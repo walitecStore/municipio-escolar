@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { demonstrationsEnabled } from "@/lib/platform";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import {
@@ -20,12 +21,12 @@ export default async function Page() {
         <Heading
           eyebrow="SUPABASE"
           title="Integración pendiente de configuración"
-          description="La demostración continúa disponible. No se ha conectado una base de datos ni habilitado votación oficial."
+          description="Configura la conexión institucional para acceder a la gestión electoral."
         />
         <section className="panel">
           <p>
             Sigue docs/ACTIVACION-SUPABASE.md para preparar manualmente tu
-            entorno de pruebas.
+            entorno institucional.
           </p>
           <Link className="button primary" href="/sistema/login">
             Ver acceso seguro
@@ -41,7 +42,10 @@ export default async function Page() {
     redirect("/sistema/mfa");
   const response = await client.rpc("list_accessible_elections");
   if (response.error) throw new Error("Consulta de elecciones no disponible.");
-  const elections = z.array(electionSchema).parse(response.data);
+  const elections = z
+    .array(electionSchema)
+    .parse(response.data)
+    .filter((e) => demonstrationsEnabled() || e.purpose === "official");
   return (
     <>
       <Heading
@@ -49,6 +53,11 @@ export default async function Page() {
         title="Panel electoral conectado"
         description={`Perfil autorizado: ${session.role === "administrator" ? "Administrador" : session.role === "committee" ? "Comité electoral" : "Elector"}. Los permisos se verifican también en PostgreSQL.`}
       />
+      {isStaff(session) && (
+        <Link className="button secondary" href="/sistema/instituciones">
+          Mi institución y equipo
+        </Link>
+      )}
       {isStaff(session) && (
         <Link className="button secondary" href="/sistema/perfil">
           Perfil · Cambiar contraseña
@@ -122,7 +131,7 @@ export default async function Page() {
         {!elections.length && (
           <p>
             No hay elecciones asignadas. El personal autorizado puede crear un
-            borrador institucional o de pruebas.
+            borrador institucional.
           </p>
         )}
         {isStaff(session) && (

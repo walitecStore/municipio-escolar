@@ -1,7 +1,16 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { demonstrationsEnabled, legacyDemoPaths } from "./lib/platform";
 import { parseIntegrationConfig } from "./lib/connected/policy";
 export async function proxy(request: NextRequest) {
+  const legacy = legacyDemoPaths.some(
+    (path) =>
+      request.nextUrl.pathname === path ||
+      request.nextUrl.pathname.startsWith(path + "/"),
+  );
+  if (legacy && !demonstrationsEnabled())
+    return NextResponse.redirect(new URL("/sistema", request.url));
+  if (legacy) return NextResponse.next();
   const config = parseIntegrationConfig(process.env);
   let response = NextResponse.next({ request });
   if (config) {
@@ -41,4 +50,15 @@ export async function proxy(request: NextRequest) {
   );
   return response;
 }
-export const config = { matcher: ["/sistema/:path*"] };
+export const config = {
+  matcher: [
+    "/sistema/:path*",
+    "/demostracion/:path*",
+    "/administracion/:path*",
+    "/estudiantes/:path*",
+    "/padron/:path*",
+    "/candidatos/:path*",
+    "/votacion/:path*",
+    "/resultados/:path*",
+  ],
+};

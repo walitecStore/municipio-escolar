@@ -1,4 +1,5 @@
 import "server-only";
+import { demonstrationsEnabled } from "@/lib/platform";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { z } from "zod";
@@ -42,6 +43,8 @@ export async function protectedElection(id: string, staff = false) {
     throw new Error("No se pudieron consultar las elecciones.");
   const elections = z.array(electionSchema).parse(response.data);
   const election = elections.find((e) => e.id === id);
+  if (election?.purpose === "test" && !demonstrationsEnabled())
+    throw new Error("Elección no disponible para este acceso.");
   if (!election) throw new Error("Elección no disponible para esta cuenta.");
   return { ...access, election };
 }

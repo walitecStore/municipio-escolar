@@ -27,6 +27,7 @@ export default defineConfig({
         SUPABASE_PUBLISHABLE_KEY: "sb_publishable_local_test_fixture",
         APP_ORIGIN: "http://127.0.0.1:3102",
         ELECTORAL_DEPLOYMENT_STAGE: "local-test",
+        ELECTORAL_DEMO_ENABLED: "true",
         VERCEL: "0", // Loopback fixture, even when the runner itself is hosted.
         ELECTORAL_RPC_VOTING_ENABLED: "true",
         ELECTORAL_SUPERVISED_DNI_ENABLED: "true",

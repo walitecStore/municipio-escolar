@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { InstallApp } from "@/components/install-app";
 import {
   ArrowRight,
   ShieldCheck,
@@ -6,13 +7,15 @@ import {
   GraduationCap,
   CalendarDays,
 } from "lucide-react";
-import { institution, classrooms } from "@/lib/institution";
+
+import { publicInstitution, demonstrationsEnabled } from "@/lib/platform";
 export default function Home() {
+  const institution = publicInstitution();
   return (
     <>
       <div className="home-intro">
         <div>
-          <div className="eyebrow">COMUNIDAD EDUCATIVA · SECUNDARIA</div>
+          <div className="eyebrow">COMUNIDADES EDUCATIVAS · PERÚ</div>
           <h1>Elecciones del Municipio Escolar</h1>
           <p>{institution.name}</p>
         </div>
@@ -41,7 +44,7 @@ export default function Home() {
               Ingresar al sistema <ArrowRight size={18} />
             </Link>
             <Link href="/sistema/login" className="hero-link">
-              Acceso de estudiantes y personal
+              Acceso del comité electoral
             </Link>
           </div>
         </div>
@@ -56,16 +59,19 @@ export default function Home() {
       >
         <article className="panel">
           <Users size={25} />
-          <h2>{institution.expectedStudents} estudiantes previstos</h2>
+          <h2>Instituciones independientes</h2>
           <p>
-            La cantidad de electores habilitados se consulta en el padrón
-            autorizado.
+            Cada encargado accede únicamente al padrón y las elecciones de su
+            institución.
           </p>
         </article>
         <article className="panel">
           <GraduationCap size={25} />
-          <h2>15 secciones de secundaria</h2>
-          <p>Grados de 1.º a 5.º, secciones A, B y C.</p>
+          <h2>Gestión institucional</h2>
+          <p>
+            Datos del colegio, personal autorizado, padrón, candidaturas y
+            actas.
+          </p>
         </article>
         <article className="panel">
           <ShieldCheck size={25} />
@@ -76,24 +82,20 @@ export default function Home() {
         </article>
       </section>
       <section className="panel section">
-        <h2>Grados y secciones</h2>
-        <div className="roll-actions">
-          {classrooms.map((c) => (
-            <span className="year-pill" key={c.label}>
-              {c.label}
-            </span>
-          ))}
-        </div>
+        <h2>Tu plataforma, también como aplicación</h2>
         <p>
-          La apertura electoral y la publicación de resultados corresponden al
-          comité autorizado.
+          Instálala en tu celular o computadora. La verificación del comité y el
+          registro centralizado requieren conexión a internet.
         </p>
+        <InstallApp />
       </section>
-      <p className="section">
-        <Link className="text-link" href="/demostracion">
-          Consultar el recorrido de demostración con datos ficticios
-        </Link>
-      </p>
+      {demonstrationsEnabled() && (
+        <p className="section">
+          <Link className="text-link" href="/demostracion">
+            Consultar el recorrido de demostración con datos ficticios
+          </Link>
+        </p>
+      )}
     </>
   );
 }

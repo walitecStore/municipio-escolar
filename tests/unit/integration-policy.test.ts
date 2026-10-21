@@ -22,6 +22,7 @@ const election: ConnectedElection = {
   purpose: "test",
   security_approved: false,
   supervised_dni: false,
+  expected_students: 230,
 };
 test("integración falla cerrada sin configuración y rechaza claves secretas o URL insegura", () => {
   assert.equal(parseIntegrationConfig({}), null);
@@ -68,8 +69,14 @@ test("votación y apertura oficial necesitan barreras explícitas; comité exige
     true,
   );
   assert.equal(openingAllowed(enabled, { ...official, state: "draft" }), false);
-  assert.equal(isStaff({ role: "committee", aal: "aal1" }), false);
-  assert.equal(isStaff({ role: "committee", aal: "aal2" }), true);
+  assert.equal(
+    isStaff({ platform_operator: false, role: "committee", aal: "aal1" }),
+    false,
+  );
+  assert.equal(
+    isStaff({ platform_operator: false, role: "committee", aal: "aal2" }),
+    true,
+  );
   assert.equal(
     isSameOrigin("https://attacker.example.test", env.APP_ORIGIN),
     false,

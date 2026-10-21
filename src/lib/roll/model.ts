@@ -14,16 +14,19 @@ export function normalizeGrade(value: unknown): number {
   const match = text.match(/^([1-5])(?:\s*\.?\s*[º°o])?$/i);
   return match ? Number(match[1]) : NaN;
 }
-export function validateRows(rows: unknown[][]): ImportResult {
+export function validateRows(
+  rows: unknown[][],
+  maximum: number = MAX_ROWS,
+): ImportResult {
   const errors: RollError[] = [];
   const students: Elector[] = [];
   const codes = new Set<string>();
   if (!rows.length)
     errors.push({ row: 1, message: "El archivo no contiene estudiantes." });
-  if (rows.length > MAX_ROWS)
+  if (rows.length > maximum)
     errors.push({
       row: 1,
-      message: `Máximo ${MAX_ROWS} estudiantes por padrón.`,
+      message: `Máximo ${maximum} estudiantes por padrón.`,
     });
   rows.forEach((row, i) => {
     const [rawCode, rawName, rawGrade, rawSection] = row;

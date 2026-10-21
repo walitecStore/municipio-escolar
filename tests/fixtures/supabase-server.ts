@@ -64,6 +64,10 @@ function recoveryClaims(email = "admin@example.test", age = 0): Claims {
   };
 }
 const profiles: Record<string, { id: string; role: string }> = {
+  "school@example.test": {
+    id: "70000000-0000-4000-8000-000000000001",
+    role: "administrator",
+  },
   "admin@example.test": {
     id: "00000000-0000-4000-8000-000000000001",
     role: "administrator",
@@ -140,6 +144,17 @@ function authTokens(c: Claims) {
     user: user(c),
   };
 }
+const baseInstitution = "60000000-0000-4000-8000-000000000001";
+let institutionProfiles = [
+  {
+    id: baseInstitution,
+    name: "Institución ficticia de integración",
+    expected_students: 230,
+    owner: "",
+  },
+];
+let electionInstitution = baseInstitution;
+let expectedStudents = 230;
 function role(c: Claims) {
   return profiles[c.email]?.role ?? "unassigned";
 }
@@ -154,6 +169,8 @@ function election() {
     state: phase,
     purpose,
     security_approved: approved,
+    expected_students: expectedStudents,
+    institution_id: electionInstitution,
     supervised_dni: supervisedDni,
   };
 }
@@ -213,6 +230,16 @@ const server = http.createServer(async (req, res) => {
       supervisedDni = false;
       station = null;
       turn = null;
+      institutionProfiles = [
+        {
+          id: baseInstitution,
+          name: "Institución ficticia de integración",
+          expected_students: 230,
+          owner: "",
+        },
+      ];
+      electionInstitution = baseInstitution;
+      expectedStudents = 230;
       phase = "draft";
       purpose = "test";
       approved = false;
@@ -447,9 +474,22 @@ const server = http.createServer(async (req, res) => {
       calls[name] = (calls[name] ?? 0) + 1;
       const args = JSON.parse((await body(req)).toString() || "{}");
       if (name === "get_electoral_session")
-        return send({ role: role(c), aal: c.aal });
+        return send({
+          role: role(c),
+          aal: c.aal,
+          platform_operator:
+            c.email === "admin@example.test" && c.aal === "aal2",
+        });
       if (name === "list_accessible_elections")
-        return send(staff(c) || role(c) === "elector" ? [election()] : []);
+        return send(
+          (staff(c) || role(c) === "elector") &&
+            (c.email !== "school@example.test" ||
+              institutionProfiles.some(
+                (i) => i.id === electionInstitution && i.owner === c.sub,
+              ))
+            ? [election()]
+            : [],
+        );
       if (name === "electoral_vote_status")
         return send(c.sub === studentId && participation);
       if (name === "get_electoral_lists")
@@ -471,6 +511,58 @@ const server = http.createServer(async (req, res) => {
         return send(null);
       }
       if (!staff(c)) return send({ code: "P0001", message: "Denied" }, 403);
+      if (name === "list_my_institutions")
+        return send({
+          platform_operator: c.email === "admin@example.test",
+          institutions: institutionProfiles.filter(
+            (i) => c.email === "admin@example.test" || i.owner === c.sub,
+          ),
+        });
+      if (name === "provision_institution") {
+        if (c.email !== "admin@example.test")
+          return send({ message: "Denied" }, 403);
+        const i = {
+          id: randomUUID(),
+          name: args.p_name,
+          expected_students: args.p_expected,
+          owner: args.p_admin,
+        };
+        institutionProfiles.push(i);
+        return send(i.id);
+      }
+      if (name === "update_my_institution") {
+        const i = institutionProfiles.find(
+          (i) =>
+            i.id === args.p_institution &&
+            (i.owner === c.sub || c.email === "admin@example.test"),
+        );
+        if (!i) return send({ message: "Denied" }, 403);
+        i.name = args.p_name;
+        i.expected_students = args.p_expected;
+        return send(null);
+      }
+      if (name === "create_institution_election") {
+        const i = institutionProfiles.find(
+          (i) =>
+            i.id === args.p_institution &&
+            (i.owner === c.sub || c.email === "admin@example.test"),
+        );
+        if (!i) return send({ message: "Denied" }, 403);
+        electionInstitution = i.id;
+        phase = "draft";
+        purpose = "official";
+        approved = false;
+        supervisedDni = true;
+        expectedStudents = args.p_expected;
+        students.splice(0);
+        return send(electionId);
+      }
+      if (name === "configure_institutional_election") {
+        if (args.p_expected < students.length)
+          return send({ message: "Rejected" }, 400);
+        expectedStudents = args.p_expected;
+        return send(null);
+      }
       if (name === "append_electoral_dni_roll") {
         if (
           phase !== "draft" ||
