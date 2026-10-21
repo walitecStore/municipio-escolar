@@ -1,7 +1,7 @@
 import { before, after, test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes, createHash } from "node:crypto";
 import { Pool, type PoolClient } from "pg";
 import { prepareElectoralCredential } from "../../src/lib/security/credentials";
 import {
@@ -90,6 +90,7 @@ before(async () => {
     "202610190003_private_electoral_media.sql",
     "202610190004_secure_application_sessions.sql",
     "202610210005_institutional_drafts.sql",
+    "202610210006_supervised_dni.sql",
   ])
     await pool.query(await readFile(`supabase/migrations/${name}`, "utf8"));
   await pool.query("insert into auth.users values($1)", [admin]);
@@ -911,5 +912,397 @@ test("borrador institucional: convive con prueba del mismo año, exige AAL2 y no
       ),
     ),
     /permission denied/,
+  );
+});
+
+async function presencialFixture() {
+  const f = await fixture(false);
+  // Invented identifiers only, reserved for disposable local tests; never import live.
+  await pool.query(
+    "update electoral_private.electors set code=lpad(row_number::text,8,'0'),auth_user_id=null from (select id,row_number() over(order by id) from electoral_private.electors where election_id=$1) x where electors.id=x.id",
+    [f.election],
+  );
+  await session(admin, (c) =>
+    c.query("select public.configure_supervised_dni($1)", [f.election]),
+  );
+  await pool.query(
+    "delete from electoral_private.credentials where election_id=$1",
+    [f.election],
+  );
+  await session(admin, (c) =>
+    c.query("select public.manage_electoral_election($1,2026,'open')", [
+      f.election,
+    ]),
+  );
+  const tokens = [
+    randomBytes(48).toString("base64url"),
+    randomBytes(48).toString("base64url"),
+  ];
+  const stations = [];
+  for (const token of tokens)
+    stations.push(
+      (
+        await session(admin, (c) =>
+          c.query(
+            "select public.create_voting_station($1,'Equipo ficticio',$2) id",
+            [f.election, createHash("sha256").update(token).digest("hex")],
+          ),
+        )
+      ).rows[0].id,
+    );
+  return { ...f, tokens, stations };
+}
+const stationOp = (
+  token: string,
+  op: string,
+  dni: string | null = null,
+  choice: string | null = null,
+) =>
+  session(
+    null,
+    (c) =>
+      c.query("select public.station_electoral_operation($1,$2,$3,$4) value", [
+        token,
+        op,
+        dni,
+        choice,
+      ]),
+    "anon",
+  ).then((r) => r.rows[0].value);
+async function authorizeStation(
+  f: Awaited<ReturnType<typeof presencialFixture>>,
+  station = 0,
+  dni = "00000001",
+) {
+  await stationOp(f.tokens[station], "request", dni);
+  const t = (
+    await pool.query(
+      "select id from electoral_private.supervised_turns where station_id=$1 and state='pending'",
+      [f.stations[station]],
+    )
+  ).rows[0].id;
+  await session(admin, (c) =>
+    c.query("select public.manage_supervised_turn($1,$2,$3,true)", [
+      f.election,
+      f.stations[station],
+      t,
+    ]),
+  );
+  return t;
+}
+test("DNI presencial: sin cuentas de alumnos; nombre solo tras verificar, voto atómico y resultados cerrados", async () => {
+  const f = await presencialFixture();
+  await assert.rejects(
+    stationOp(randomBytes(48).toString("base64url"), "status"),
+  );
+  await assert.rejects(stationOp(f.tokens[0], "cast", null, f.lists[0]));
+  assert.equal(
+    (await stationOp(f.tokens[0], "request", "00000001")).state,
+    "pending",
+  );
+  assert.equal((await stationOp(f.tokens[0], "status")).name, undefined);
+  const t = (
+    await pool.query(
+      "select id from electoral_private.supervised_turns where station_id=$1",
+      [f.stations[0]],
+    )
+  ).rows[0].id;
+  await assert.rejects(
+    session(null, (c) =>
+      c.query("select public.manage_supervised_turn($1,$2,$3,true)", [
+        f.election,
+        f.stations[0],
+        t,
+      ]),
+    ),
+  );
+  await assert.rejects(
+    session(admin, async (c) => {
+      await c.query(
+        `select set_config('request.jwt.claims','{"aal":"aal1"}',true)`,
+      );
+      await c.query("select public.manage_supervised_turn($1,$2,$3,true)", [
+        f.election,
+        f.stations[0],
+        t,
+      ]);
+    }),
+  );
+  await session(admin, (c) =>
+    c.query("select public.manage_supervised_turn($1,$2,$3,true)", [
+      f.election,
+      f.stations[0],
+      t,
+    ]),
+  );
+  const state = await stationOp(f.tokens[0], "status");
+  assert.equal(state.state, "authorized");
+  assert.match(state.name, /Estudiante ficticio/);
+  assert.equal(state.lists.length, 3);
+  const attempts = await Promise.allSettled([
+    stationOp(f.tokens[0], "cast", null, f.lists[0]),
+    stationOp(f.tokens[0], "cast", null, f.lists[1]),
+  ]);
+  assert.equal(attempts.filter((r) => r.status === "fulfilled").length, 1);
+  assert.equal((await stationOp(f.tokens[0], "status")).state, "consumed");
+  assert.equal(
+    (
+      await pool.query(
+        "select count(*) n from ballot_box.ballots where election_id=$1",
+        [f.election],
+      )
+    ).rows[0].n,
+    "1",
+  );
+  await assert.rejects(
+    session(admin, (c) =>
+      c.query("select public.get_electoral_results($1)", [f.election]),
+    ),
+  );
+  await assert.rejects(
+    session(
+      null,
+      (c) => c.query("select * from electoral_private.supervised_turns"),
+      "anon",
+    ),
+  );
+  await stationOp(f.tokens[0], "finish");
+  assert.equal(
+    (await stationOp(f.tokens[1], "request", "00000001")).state,
+    "unavailable",
+  );
+});
+test("DNI presencial: autorizaciones simultáneas del mismo elector en dos equipos, caducidad y revocación", async () => {
+  const f = await presencialFixture();
+  await Promise.all(f.tokens.map((t) => stationOp(t, "request", "00000001")));
+  const turns = (
+    await pool.query(
+      "select id,station_id from electoral_private.supervised_turns where election_id=$1",
+      [f.election],
+    )
+  ).rows;
+  const approvals = await Promise.allSettled(
+    turns.map((t) =>
+      session(admin, (c) =>
+        c.query("select public.manage_supervised_turn($1,$2,$3,true)", [
+          f.election,
+          t.station_id,
+          t.id,
+        ]),
+      ),
+    ),
+  );
+  assert.equal(approvals.filter((r) => r.status === "fulfilled").length, 1);
+  await pool.query(
+    "update electoral_private.supervised_turns set expires_at=clock_timestamp()-interval '1 second' where election_id=$1",
+    [f.election],
+  );
+  for (const token of f.tokens)
+    await assert.rejects(stationOp(token, "cast", null, f.lists[0]));
+  await session(admin, (c) =>
+    c.query("select public.manage_supervised_turn($1,$2,null,false,true)", [
+      f.election,
+      f.stations[0],
+    ]),
+  );
+  await assert.rejects(stationOp(f.tokens[0], "status"));
+});
+test("DNI presencial: 230 alumnos ficticios en dos equipos, blancos y conteo centralizado", async () => {
+  const f = await presencialFixture();
+  for (let i = 1; i <= 230; i++) {
+    const n = i % 2;
+    const dni = String(i).padStart(8, "0");
+    // Advance only the per-station rate window in the isolated database (no sleeps).
+    await pool.query(
+      "update electoral_private.voting_stations set window_start=clock_timestamp()-interval '2 minutes' where election_id=$1",
+      [f.election],
+    );
+    await authorizeStation(f, n, dni);
+    await stationOp(
+      f.tokens[n],
+      "cast",
+      null,
+      i % 10 === 0 ? null : f.lists[0],
+    );
+    await stationOp(f.tokens[n], "finish");
+  }
+  await session(admin, (c) =>
+    c.query("select public.manage_electoral_election($1,2026,'closed')", [
+      f.election,
+    ]),
+  );
+  const r = (
+    await session(admin, (c) =>
+      c.query("select public.get_electoral_results($1) r", [f.election]),
+    )
+  ).rows[0].r;
+  assert.equal(r.voters, 230);
+  assert.equal(r.blank, 23);
+  assert.equal(
+    r.lists.find((l: { id: string }) => l.id === f.lists[0]).votes,
+    207,
+  );
+  await assert.rejects(stationOp(f.tokens[0], "request", "00000001"));
+});
+test("DNI presencial: cierre espera voto en curso por conexiones independientes; elección cerrada no recibe votos", async () => {
+  const f = await presencialFixture();
+  await authorizeStation(f);
+  const c = await pool.connect();
+  try {
+    await c.query("begin");
+    await c.query("set local role anon");
+    await c.query(
+      "select public.station_electoral_operation($1,'cast',null,$2)",
+      [f.tokens[0], f.lists[0]],
+    );
+    const close = session(admin, (c) =>
+      c.query("select public.manage_electoral_election($1,2026,'closed')", [
+        f.election,
+      ]),
+    );
+    await c.query("commit");
+    await close;
+    await assert.rejects(stationOp(f.tokens[1], "cast", null, f.lists[0]));
+    assert.equal(
+      (
+        await pool.query(
+          "select count(*) n from ballot_box.ballots where election_id=$1",
+          [f.election],
+        )
+      ).rows[0].n,
+      "1",
+    );
+  } finally {
+    await c.query("rollback");
+    c.release();
+  }
+});
+
+test("DNI presencial: fallo de papeleta revierte todo; canal individual, tokens caducados y abuso quedan bloqueados", async () => {
+  const f = await presencialFixture();
+  await authorizeStation(f);
+  await assert.rejects(vote(f));
+  await pool.query(
+    `create function ballot_box.fail_supervised_test() returns trigger language plpgsql as $$ begin raise exception 'Fallo ficticio';end $$;create trigger fail_supervised_test before insert on ballot_box.ballots for each row execute function ballot_box.fail_supervised_test()`,
+  );
+  try {
+    await assert.rejects(stationOp(f.tokens[0], "cast", null, f.lists[0]));
+    assert.equal((await stationOp(f.tokens[0], "status")).state, "authorized");
+    assert.equal(
+      (
+        await pool.query(
+          "select count(*) n from electoral_private.participations where election_id=$1",
+          [f.election],
+        )
+      ).rows[0].n,
+      "0",
+    );
+  } finally {
+    await pool.query(
+      "drop trigger fail_supervised_test on ballot_box.ballots;drop function ballot_box.fail_supervised_test()",
+    );
+  }
+  for (let i = 0; i < 5; i++)
+    assert.equal(
+      (await stationOp(f.tokens[1], "request", "99999999")).state,
+      "unavailable",
+    );
+  assert.equal(
+    (await stationOp(f.tokens[1], "request", "99999999")).state,
+    "limited",
+  );
+  await pool.query(
+    "update electoral_private.voting_stations set expires_at=clock_timestamp()-interval '1 second' where id=$1",
+    [f.stations[1]],
+  );
+  await assert.rejects(stationOp(f.tokens[1], "status"));
+  // Independent devices may cast DIFFERENT students concurrently; same central count.
+  await pool.query(
+    "update electoral_private.voting_stations set expires_at=clock_timestamp()+interval '1 hour',window_start=clock_timestamp()-interval '2 minutes' where id=$1",
+    [f.stations[1]],
+  );
+  await authorizeStation(f, 1, "00000002");
+  const casts = await Promise.allSettled(
+    f.tokens.map((token) => stationOp(token, "cast", null, f.lists[0])),
+  );
+  assert.equal(casts.filter((r) => r.status === "fulfilled").length, 2);
+  assert.equal(
+    (
+      await pool.query(
+        "select count(*) n from ballot_box.ballots where election_id=$1",
+        [f.election],
+      )
+    ).rows[0].n,
+    "2",
+  );
+  const columns = (
+    await pool.query(
+      "select column_name from information_schema.columns where table_schema='ballot_box' and table_name='ballots'",
+    )
+  ).rows.map((r) => r.column_name);
+  assert.deepEqual(columns.sort(), ["choice_id", "election_id", "id"]);
+  const events = (
+    await pool.query(
+      "select action from electoral_private.admin_audit where election_id=$1",
+      [f.election],
+    )
+  ).rows.map((r) => r.action);
+  assert.ok(events.includes("identity_checked"));
+  assert.ok(!events.some((a) => /vote|choice_selected/i.test(a)));
+});
+
+test("padrón DNI por grado: agrega lotes sin borrar anteriores, duplicados y carreras revierten lote completo", async () => {
+  const id = (
+    await session(admin, (c) =>
+      c.query("select public.manage_electoral_election(null,$1) id", [year++]),
+    )
+  ).rows[0].id;
+  const row = (code: string, grade: number) => ({
+    codigo: code,
+    nombre: "Estudiante ficticio",
+    grado: grade,
+    seccion: "A",
+  });
+  const add = (rows: ReturnType<typeof row>[]) =>
+    session(admin, (c) =>
+      c.query("select public.append_electoral_dni_roll($1,$2::jsonb)", [
+        id,
+        JSON.stringify(rows),
+      ]),
+    );
+  await add([row("00000001", 1)]);
+  await add([row("00000002", 2)]);
+  await assert.rejects(add([row("00000003", 3), row("00000001", 1)]));
+  assert.equal(
+    (
+      await pool.query(
+        "select count(*) n from electoral_private.electors where election_id=$1",
+        [id],
+      )
+    ).rows[0].n,
+    "2",
+  );
+  const simultaneous = await Promise.allSettled([
+    add([row("00000003", 3)]),
+    add([row("00000003", 3)]),
+  ]);
+  assert.equal(simultaneous.filter((r) => r.status === "fulfilled").length, 1);
+  await assert.rejects(add([row("00000004", 6)]));
+  await assert.rejects(
+    session(null, (c) =>
+      c.query("select public.append_electoral_dni_roll($1,$2::jsonb)", [
+        id,
+        JSON.stringify([row("00000004", 4)]),
+      ]),
+    ),
+  );
+  assert.equal(
+    (
+      await pool.query(
+        "select count(*) n from electoral_private.electors where election_id=$1",
+        [id],
+      )
+    ).rows[0].n,
+    "3",
   );
 });

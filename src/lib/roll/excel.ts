@@ -44,6 +44,7 @@ function validateArchive(buffer: ArrayBuffer) {
 
 export async function readRollExcel(
   buffer: ArrayBuffer,
+  options: { allowDni?: boolean } = {},
 ): Promise<ImportResult> {
   if (buffer.byteLength > MAX_FILE_BYTES)
     throw new Error("El archivo supera 2 MB.");
@@ -53,16 +54,26 @@ export async function readRollExcel(
   if (workbook.worksheets.length !== 1)
     throw new Error("El libro debe contener una sola hoja.");
   const sheet = workbook.worksheets[0];
+  const dni =
+    String(sheet.getRow(1).getCell(1).value ?? "")
+      .trim()
+      .toLowerCase() === "dni";
+  const expectedHeaders =
+    dni && options.allowDni ? ["dni", "nombre", "grado", "seccion"] : headers;
   if (
     sheet.actualColumnCount !== 4 ||
-    !headers.every(
+    !expectedHeaders.every(
       (h, i) =>
         String(sheet.getRow(1).getCell(i + 1).value ?? "")
           .trim()
           .toLowerCase() === h,
     )
   )
-    throw new Error("Encabezados requeridos: codigo, nombre, grado, seccion.");
+    throw new Error(
+      options.allowDni
+        ? "Encabezados: dni, nombre, grado, seccion (DNI como texto de 8 dígitos)."
+        : "Encabezados requeridos: codigo, nombre, grado, seccion.",
+    );
   if (sheet.rowCount > 231)
     throw new Error("Máximo 230 estudiantes; elimina filas adicionales.");
   const rows: unknown[][] = [];
@@ -74,6 +85,14 @@ export async function readRollExcel(
         if (value !== null && typeof value === "object")
           throw new Error(
             `Fila ${number}: no se permiten fórmulas, enlaces ni celdas enriquecidas.`,
+          );
+        if (
+          dni &&
+          column === 1 &&
+          (typeof value !== "string" || !/^\d{8}$/.test(value.trim()))
+        )
+          throw new Error(
+            `Fila ${number}: DNI obligatorio como texto de exactamente 8 dígitos; conserva ceros iniciales.`,
           );
         return value;
       }),

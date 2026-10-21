@@ -7,6 +7,7 @@ export const electionSchema = z.object({
   state: z.enum(["draft", "open", "closed"]),
   purpose: z.enum(["test", "official"]),
   security_approved: z.boolean(),
+  supervised_dni: z.boolean().default(false),
 });
 export type ConnectedElection = z.infer<typeof electionSchema>;
 export const sessionSchema = z.object({

@@ -225,3 +225,7 @@ La integración se ha probado contra simuladores locales y PostgreSQL, no contra
 el proyecto Supabase real. Requisitos pendientes y pasos exactos:
 `docs/ACTIVACION-SUPABASE.md`. La guía no autoriza el uso de información de menores
 ni certifica anonimato contra operadores o infraestructura.
+
+## Modalidad presencial opcional (006)
+
+Consulta [VOTACION-PRESENCIAL-DNI](VOTACION-PRESENCIAL-DNI.md). El DNI identifica al alumno; la comprobación presencial y la autorización AAL2 del comité lo habilitan para votar. Las mesas usan secretos aleatorios de posesión en cookies HttpOnly y RPC `anon` acotadas; no reutilizan sesiones administrativas ni crean cuentas estudiantiles. La habilitación copiada no queda ligada criptográficamente a un dispositivo: exige custodia, caducidad y revocación. La papeleta continúa sin identidad/turno/equipo/fecha, pero los operadores privilegiados pueden correlacionar transacciones y WAL. No hay aprobación ni apertura oficial automática. Las pruebas locales no sustituyen un ensayo de configuración e infraestructura alojada.

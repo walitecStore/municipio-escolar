@@ -59,10 +59,11 @@ export default async function Page({
         <ConnectedImportRoll election={election} />
       </section>
       <section className="panel section">
-        <h2>Corregir y vincular cuentas Auth</h2>
+        <h2>Corregir registros del padrón</h2>
         <p>
-          Cada cuenta debe existir previamente en Auth. No se crean usuarios ni
-          se usan claves administrativas desde esta página.
+          {election.supervised_dni
+            ? "Modalidad presencial: el alumno se identifica con DNI y el comité lo verifica. No requiere cuenta Auth individual."
+            : "Modalidad individual: cada cuenta debe existir previamente en Auth. No se crean usuarios ni se usan claves administrativas desde esta página."}
         </p>
         <ConnectedCorrectStudent election={election} students={students} />
       </section>
@@ -72,11 +73,13 @@ export default async function Page({
           <table aria-label="Padrón conectado">
             <thead>
               <tr>
-                <th>Código</th>
+                <th>DNI / código</th>
                 <th>Nombre</th>
                 <th>Grado</th>
                 <th>Sección</th>
-                <th>Cuenta vinculada</th>
+                <th>
+                  {election.supervised_dni ? "Modalidad" : "Cuenta vinculada"}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -86,7 +89,13 @@ export default async function Page({
                   <td>{s.full_name}</td>
                   <td>{s.grade}</td>
                   <td>{s.section}</td>
-                  <td>{s.auth_user_id ? "Sí" : "Pendiente"}</td>
+                  <td>
+                    {election.supervised_dni
+                      ? "DNI presencial"
+                      : s.auth_user_id
+                        ? "Sí"
+                        : "Pendiente"}
+                  </td>
                 </tr>
               ))}
             </tbody>

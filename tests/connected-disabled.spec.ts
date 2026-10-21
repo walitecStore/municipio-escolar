@@ -50,3 +50,13 @@ test("portada institucional y demostración quedan separadas", async ({
     page.getByText("Datos ficticios. No se registran votos oficiales."),
   ).toBeVisible();
 });
+
+test("mesa presencial deshabilitada no solicita DNI ni habilitaciones", async ({
+  page,
+}) => {
+  await page.goto("/sistema/mesa");
+  await expect(
+    page.getByRole("heading", { name: "Votación presencial deshabilitada" }),
+  ).toBeVisible();
+  await expect(page.getByRole("textbox")).toHaveCount(0);
+});

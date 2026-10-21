@@ -79,3 +79,5 @@ son perfiles de personal autorizado con las mismas facultades actuales. Las
 cuentas sin membresía no reciben permisos por sus metadatos editables.
 
 La migración adicional `202610210005_institutional_drafts.sql` se aplica después de 001–004 para preparar borradores institucionales sin habilitar la elección. Ver [compatibilidad y operación](../docs/GESTION-INSTITUCIONAL.md). No repetir las migraciones ya instaladas.
+
+**006 — `202610210006_supervised_dni.sql`**, después de 005: modalidad optativa de DNI presencial, habilitación privada de equipos y autorización por comité AAL2. Conserva todas las elecciones en su modalidad anterior, no aprueba seguridad ni abre votaciones. Revisa [VOTACION-PRESENCIAL-DNI](../docs/VOTACION-PRESENCIAL-DNI.md) antes de aplicarla manualmente; no vuelvas a ejecutar 001–005 ya aplicadas.

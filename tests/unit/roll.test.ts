@@ -87,3 +87,23 @@ test("Excel rechaza archivos comprimidos con expansión excesiva antes del parse
     /expandido/,
   );
 });
+
+test("Excel institucional con DNI conserva ceros iniciales y rechaza números, duplicados y grados inválidos", async () => {
+  const book = new ExcelJS.Workbook();
+  const sheet = book.addWorksheet("Ficticio");
+  sheet.addRow(["dni", "nombre", "grado", "seccion"]);
+  sheet.addRow(["00000001", "Estudiante ficticio 001", 1, "A"]);
+  const load = async () =>
+    readRollExcel((await book.xlsx.writeBuffer()) as ArrayBuffer, {
+      allowDni: true,
+    });
+  assert.equal((await load()).students[0].code, "00000001");
+  sheet.getCell("A2").value = 1;
+  await assert.rejects(load(), /texto/);
+  sheet.getCell("A2").value = "00000001";
+  sheet.addRow(["00000001", "Estudiante ficticio 002", 6, "D"]);
+  const bad = await load();
+  assert.equal(bad.students.length, 0);
+  assert.ok(bad.errors.some((e) => e.message.includes("duplicado")));
+  assert.ok(bad.errors.some((e) => e.message.includes("Grado")));
+});

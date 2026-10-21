@@ -161,7 +161,9 @@ export async function importRollAction(
       !file.name.toLowerCase().endsWith(".xlsx")
     )
       return { error: "Selecciona un XLSX de hasta 2 MB." };
-    const result = await readRollExcel(await file.arrayBuffer());
+    const result = await readRollExcel(await file.arrayBuffer(), {
+      allowDni: access.election.purpose === "official",
+    });
     if (result.errors.length)
       return {
         error:
@@ -172,18 +174,29 @@ export async function importRollAction(
         error:
           "El entorno de pruebas solo admite la plantilla ficticia DEMO-NNN.",
       };
-    await access.rpc.call("replace_electoral_roll", {
-      p_election: id,
-      p_rows: result.students.map((s) => ({
-        codigo: s.code,
-        nombre: s.name,
-        grado: s.grade,
-        seccion: s.section,
-      })),
-    });
+    const append = form.get("mode") === "append";
+    if (append && access.election.purpose !== "official")
+      return {
+        error:
+          "La importación por grado requiere un padrón institucional con DNI.",
+      };
+    await access.rpc.call(
+      append ? "append_electoral_dni_roll" : "replace_electoral_roll",
+      {
+        p_election: id,
+        p_rows: result.students.map((s) => ({
+          codigo: s.code,
+          nombre: s.name,
+          grado: s.grade,
+          seccion: s.section,
+        })),
+      },
+    );
     revalidatePath(`/sistema/${id}/padron`);
     return {
-      message: `Importados ${result.students.length} registros en una transacción. Vincula cada cuenta Auth; las credenciales anteriores fueron revocadas.`,
+      message: append
+        ? `Agregados ${result.students.length} registros sin reemplazar los grados existentes. Los duplicados se rechazan de forma transaccional.`
+        : `Importados ${result.students.length} registros en una transacción. En modalidad individual vincula las cuentas Auth; para DNI presencial usa Mesas · DNI. Las credenciales anteriores fueron revocadas.`,
     };
   } catch {
     return fail();
