@@ -150,10 +150,7 @@ export function PasswordForm({
           />
         </>
       )}
-      <p className="recovery-help">
-        Al menos 12 caracteres y hasta 72 bytes. Incluye mayúscula, minúscula,
-        número y símbolo. Supabase puede aplicar requisitos adicionales.
-      </p>
+      <p className="recovery-help">Mínimo 12 caracteres, con mayúscula, minúscula, número y símbolo.</p>
       <NewPasswordInput />
       <NewPasswordInput confirmation />
       {mfa && (
@@ -192,6 +189,7 @@ export function RecoveryForm() {
   const [available, setAvailable] = useState(false);
   const [state, setState] = useState<PasswordState>({});
   const [busy, setBusy] = useState(false);
+  const verifying = useRef(false);
   useEffect(() => {
     if (captured.current) return;
     captured.current = true;
@@ -221,6 +219,20 @@ export function RecoveryForm() {
           }),
         );
   }, []);
+  useEffect(() => {
+    if (!available || !proof.current || verifying.current) return;
+    verifying.current = true;
+    const data = proof.current;
+    proof.current = null;
+    queueMicrotask(() => setBusy(true));
+    void (codeMode.current ? exchangeRecoveryCodeAction : verifyRecoveryAction)({}, data)
+      .then(setState)
+      .catch(() => setState({ error: expiredMessage, expired: true }))
+      .finally(() => {
+        setBusy(false);
+        setAvailable(false);
+      });
+  }, [available]);
   const restart = () => {
     proof.current = null;
     setState({});
@@ -238,10 +250,10 @@ export function RecoveryForm() {
         }
         description={
           state.ready
-            ? "Establece una contraseña segura. Mantendremos la verificación MFA para acceder al panel."
-            : available
-              ? "Confirma el enlace de tu correo para continuar de forma segura."
-              : "Ingresa tu correo electrónico registrado para recibir un enlace de recuperación."
+            ? "Escribe y confirma tu nueva contraseña."
+            : available || busy
+              ? "Estamos verificando tu enlace."
+              : "Recibe un enlace de recuperación en tu correo."
         }
       />
       {state.ready ? (
@@ -250,37 +262,7 @@ export function RecoveryForm() {
         <ExpiredLink restart={restart} />
       ) : (
         <>
-          {available && (
-            <button
-              className="button primary"
-              disabled={busy}
-              onClick={async () => {
-                if (!proof.current) return;
-                setBusy(true);
-                const data = proof.current;
-                proof.current = null;
-                setAvailable(false);
-                try {
-                  setState(
-                    await (
-                      codeMode.current
-                        ? exchangeRecoveryCodeAction
-                        : verifyRecoveryAction
-                    )({}, data),
-                  );
-                } catch {
-                  setState({
-                    error: "No se pudo verificar el enlace. Solicita uno nuevo",
-                    expired: true,
-                  });
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            >
-              Verificar enlace de recuperación
-            </button>
-          )}
+          {(busy || available) && <p role="status" className="recovery-help">Verificando tu enlace…</p>}
           {state.error && (
             <p role="alert" className="recovery-feedback error">
               {state.error}
@@ -292,12 +274,6 @@ export function RecoveryForm() {
       <div className="recovery-back">
         <Link className="text-link" href="/sistema/login">
           Volver al inicio de sesión
-        </Link>
-        <p className="recovery-help">
-          ¿Aún puedes entrar a tu cuenta y recuerdas tu contraseña actual? No necesitas recibir un correo: entra al panel y utiliza Perfil → Cambiar contraseña.
-        </p>
-        <Link className="text-link" href="/sistema/perfil">
-          Ir a cambiar mi contraseña desde el perfil
         </Link>
       </div>
     </>
