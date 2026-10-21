@@ -254,3 +254,17 @@ no se añadieron Redis, servicios externos ni tablas electorales para este cambi
 5. Validar entrada sin enlace, error de envío, espera, correo real, enlace nuevo,
    cambio de contraseña y nuevo login con MFA. Las pruebas locales simulan Auth y
    SMTP: no certifican entrega real en Gmail ni SMTP alojado.
+
+## Validación de la revisión 59335f1
+
+El flujo actual verifica el enlace automáticamente: las pruebas de navegador se
+actualizaron para esperar el formulario o el rechazo, conservando comprobaciones
+de un solo uso, sesión aislada, contraseña nueva, nuevo login y MFA. No dependen
+de un botón de verificación retirado de la interfaz.
+
+El SDK puede representar una respuesta HTTP 500 como `AuthRetryableFetchError`.
+Ese nombre por sí solo no demuestra un fallo de conexión: con estado 5xx se
+mantiene el diagnóstico `mail_service`. La categoría `connection` se reserva para
+un error de transporte sin estado HTTP. En ese caso tampoco se afirma que el
+correo no se envió: una respuesta perdida no permite saber si Auth lo procesó.
+Estos casos se validan localmente; no prueban el envío real del proyecto alojado.

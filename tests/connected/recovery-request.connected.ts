@@ -16,9 +16,7 @@ test("entrada directa sin enlace no muestra error y mantiene diseño móvil", as
     page.getByRole("heading", { name: "RESTABLECER CONTRASEÑA" }),
   ).toBeVisible();
   await expect(
-    page.getByText(
-      "Ingresa tu correo electrónico registrado para recibir un enlace de recuperación.",
-    ),
+    page.getByText("Recibe un enlace de recuperación en tu correo."),
   ).toBeVisible();
   await expect(page.getByLabel("Correo electrónico")).toBeVisible();
   await expect(

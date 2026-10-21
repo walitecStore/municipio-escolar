@@ -59,22 +59,23 @@ export async function requestRecoveryAction(
     const failure = recoveryFailure(error);
     recoveryDiagnostic(failure, error.status, error.code, error.name);
     if (failure === "account_neutral") return accepted;
-    return error.name === "AuthRetryableFetchError" || error.code === "fetch_error"
+    return failure === "connection"
       ? {
-          error: "No se pudo conectar con el servicio de autenticación. El enlace no fue enviado. El administrador debe revisar la conexión entre Vercel y Supabase.",
+          error:
+            "No se pudo confirmar la solicitud con el servicio de autenticación. Inténtalo más tarde o contacta al responsable para revisar la conexión.",
           retryAfter: 60,
         }
       : failure === "rate_limit"
-      ? {
-          error:
-            "Se alcanzó el límite de solicitudes del servicio. Espera antes de intentarlo de nuevo.",
-          retryAfter: 60,
-        }
-      : {
-          error:
-            "No se pudo procesar la recuperación. Inténtalo más tarde o contacta al responsable para revisar el servicio de correo.",
-          retryAfter: 60,
-        };
+        ? {
+            error:
+              "Se alcanzó el límite de solicitudes del servicio. Espera antes de intentarlo de nuevo.",
+            retryAfter: 60,
+          }
+        : {
+            error:
+              "No se pudo procesar la recuperación. Inténtalo más tarde o contacta al responsable para revisar el servicio de correo.",
+            retryAfter: 60,
+          };
   } catch {
     recoveryDiagnostic("unavailable");
     return {
@@ -121,9 +122,20 @@ export async function verifyRecoveryAction(
     const verified = await verifiedRecovery();
     return { ready: true, mfa: !!verified.factor };
   } catch {
-    console.info(JSON.stringify({ event: "password_recovery_verify", phase, outcome: "failed" }));
+    console.info(
+      JSON.stringify({
+        event: "password_recovery_verify",
+        phase,
+        outcome: "failed",
+      }),
+    );
     await clearRecoveryCookies();
-    return phase === "proof" ? { error: expired, expired: true } : { error: "No se pudo completar la verificación. Contacta al administrador." };
+    return phase === "proof"
+      ? { error: expired, expired: true }
+      : {
+          error:
+            "No se pudo completar la verificación. Contacta al administrador.",
+        };
   }
 }
 export async function exchangeRecoveryCodeAction(

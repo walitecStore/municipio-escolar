@@ -21,6 +21,15 @@ test("envío: clasifica fallos sin interpretar mensajes privados ni revelar cuen
   assert.equal(recoveryFailure({ code: "email_not_confirmed" }), "provider");
   assert.equal(recoveryFailure({ status: 503 }), "mail_service");
   assert.equal(
+    recoveryFailure({ status: 500, name: "AuthRetryableFetchError" }),
+    "mail_service",
+  );
+  assert.equal(
+    recoveryFailure({ status: 0, name: "AuthRetryableFetchError" }),
+    "connection",
+  );
+  assert.equal(recoveryFailure({ code: "fetch_error" }), "connection");
+  assert.equal(
     recoveryFailure({ status: 400, code: "unrecognized-sensitive-text" }),
     "provider",
   );
