@@ -8,10 +8,12 @@ export const electionSchema = z.object({
   purpose: z.enum(["test", "official"]),
   security_approved: z.boolean(),
   supervised_dni: z.boolean().default(false),
+  expected_students: z.number().int().min(1).max(10000).default(230),
 });
 export type ConnectedElection = z.infer<typeof electionSchema>;
 export const sessionSchema = z.object({
   role: z.enum(["administrator", "committee", "elector", "unassigned"]),
+  platform_operator: z.boolean().default(false),
   aal: z.enum(["aal1", "aal2"]),
 });
 export type ElectoralSession = z.infer<typeof sessionSchema>;

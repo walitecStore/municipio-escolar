@@ -229,3 +229,9 @@ ni certifica anonimato contra operadores o infraestructura.
 ## Modalidad presencial opcional (006)
 
 Consulta [VOTACION-PRESENCIAL-DNI](VOTACION-PRESENCIAL-DNI.md). El DNI identifica al alumno; la comprobación presencial y la autorización AAL2 del comité lo habilitan para votar. Las mesas usan secretos aleatorios de posesión en cookies HttpOnly y RPC `anon` acotadas; no reutilizan sesiones administrativas ni crean cuentas estudiantiles. La habilitación copiada no queda ligada criptográficamente a un dispositivo: exige custodia, caducidad y revocación. La papeleta continúa sin identidad/turno/equipo/fecha, pero los operadores privilegiados pueden correlacionar transacciones y WAL. No hay aprobación ni apertura oficial automática. Las pruebas locales no sustituyen un ensayo de configuración e infraestructura alojada.
+
+## Aislamiento entre instituciones (008)
+
+Los encargados se asignan en `institution_staff`, exclusivamente a una institución por cuenta. `can_manage_election` deriva el colegio de la elección y consulta la asignación por `auth.uid()` con AAL2. Las funciones de padrón, candidaturas, credenciales, mesas, auditorías y resultados verifican ese alcance; las políticas RLS y los límites restrictivos de Storage también lo usan. `institution_id` es inmutable. No se confía en un identificador enviado por el navegador ni en metadatos editables del usuario.
+
+El rol histórico `administrator` en `electoral_private.administrators` es operador global; el comité histórico permanece limitado a la institución inicial. Los nuevos encargados NO se incorporan a esa tabla histórica. El operador y el propietario de la base conservan privilegios elevados. Consulta [PLATAFORMA-MULTIINSTITUCION](PLATAFORMA-MULTIINSTITUCION.md) para incorporación controlada, revocación, actualización compatible y límites de la PWA sin almacenamiento sin conexión.

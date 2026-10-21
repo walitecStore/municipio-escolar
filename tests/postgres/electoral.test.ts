@@ -65,7 +65,7 @@ const rpc = (c: PoolClient): AuthorizedRpc => ({
     return result.rows[0]?.value as T;
   },
 });
-before(async () => {
+async function initializeDatabase(migrationNames: string[]) {
   // Dedicated disposable database only. No real Supabase URLs or accounts.
   await pool.query(
     "drop schema if exists electoral_private,ballot_box,storage,auth,public cascade;create schema public;",
@@ -84,20 +84,26 @@ before(async () => {
  -- Emulate automatic ENABLE RLS for newly created tables before migration execution.
  create function public.test_auto_rls() returns event_trigger language plpgsql as $$ declare cmd record;begin for cmd in select * from pg_event_trigger_ddl_commands() where command_tag='CREATE TABLE' and object_type='table' loop execute format('alter table %s enable row level security',cmd.objid::regclass);end loop;end $$;
  create event trigger test_auto_rls on ddl_command_end when tag in ('CREATE TABLE') execute function public.test_auto_rls();`);
-  for (const name of [
+  for (const name of migrationNames)
+    await pool.query(await readFile(`supabase/migrations/${name}`, "utf8"));
+  await pool.query("insert into auth.users values($1)", [admin]);
+  await pool.query("insert into electoral_private.administrators values($1)", [
+    admin,
+  ]);
+}
+before(() =>
+  initializeDatabase([
     "202610190001_electoral_security.sql",
     "202610190002_complete_electoral_system.sql",
     "202610190003_private_electoral_media.sql",
     "202610190004_secure_application_sessions.sql",
     "202610210005_institutional_drafts.sql",
     "202610210006_supervised_dni.sql",
-  ])
-    await pool.query(await readFile(`supabase/migrations/${name}`, "utf8"));
-  await pool.query("insert into auth.users values($1)", [admin]);
-  await pool.query("insert into electoral_private.administrators values($1)", [
-    admin,
-  ]);
-});
+    "202610210007_institutional_configuration.sql",
+    "202610210008_institution_isolation.sql",
+  ]),
+);
+
 after(async () => {
   await pool.end();
 });
@@ -896,7 +902,7 @@ test("borrador institucional: convive con prueba del mismo año, exige AAL2 y no
         testRow.year,
       ]),
     ),
-    /Se requieren 230 electores/,
+    /El padrón debe coincidir con el total configurado/,
   );
   await assert.rejects(
     session(admin, (c) =>
@@ -1304,5 +1310,459 @@ test("padrón DNI por grado: agrega lotes sin borrar anteriores, duplicados y ca
       )
     ).rows[0].n,
     "3",
+  );
+});
+
+test("configuración institucional: mantiene registros existentes, capacidad variable y MFA", async () => {
+  const f = await fixture(false);
+  await session(admin, (c) =>
+    c.query("select public.configure_institutional_election($1,$2,$3)", [
+      f.election,
+      "Colegio ficticio",
+      230,
+    ]),
+  ).then(
+    () => assert.fail("Una elección de ensayo no se convierte a institucional"),
+    () => {},
+  );
+  const id = (
+    await session(admin, (c) =>
+      c.query("select public.create_configured_election($1,$2,$3) id", [
+        "Institución ficticia configurable",
+        2098,
+        2,
+      ]),
+    )
+  ).rows[0].id;
+  const metadata = (
+    await pool.query(
+      "select state,security_approved,supervised_dni,expected_students from electoral_private.elections where id=$1",
+      [id],
+    )
+  ).rows[0];
+  assert.equal(metadata.state, "draft");
+  assert.equal(metadata.security_approved, false);
+  assert.equal(metadata.supervised_dni, true);
+  assert.equal(metadata.expected_students, 2);
+  const row = (n: number) => ({
+    codigo: String(n).padStart(8, "0"),
+    nombre: `Estudiante ficticio ${n}`,
+    grado: 1,
+    seccion: "A",
+  });
+  await session(admin, (c) =>
+    c.query("select public.append_electoral_dni_roll($1,$2::jsonb)", [
+      id,
+      JSON.stringify([row(1), row(2)]),
+    ]),
+  );
+  await assert.rejects(
+    session(admin, (c) =>
+      c.query("select public.append_electoral_dni_roll($1,$2::jsonb)", [
+        id,
+        JSON.stringify([row(3)]),
+      ]),
+    ),
+  );
+  await assert.rejects(
+    session(admin, (c) =>
+      c.query("select public.configure_institutional_election($1,$2,1)", [
+        id,
+        "Institución ficticia configurable",
+      ]),
+    ),
+  );
+  await session(admin, (c) =>
+    c.query("select public.configure_institutional_election($1,$2,3)", [
+      id,
+      "Institución ficticia configurable",
+    ]),
+  );
+  await session(admin, (c) =>
+    c.query("select public.append_electoral_dni_roll($1,$2::jsonb)", [
+      id,
+      JSON.stringify([row(3)]),
+    ]),
+  );
+  assert.equal(
+    (
+      await pool.query(
+        "select count(*) n from electoral_private.electors where election_id=$1",
+        [id],
+      )
+    ).rows[0].n,
+    "3",
+  );
+  await assert.rejects(
+    session(null, (c) =>
+      c.query("select public.create_configured_election($1,2099,2)", [
+        "Sin permiso",
+      ]),
+    ),
+  );
+  await assert.rejects(
+    session(admin, async (c) => {
+      await c.query(
+        `select set_config('request.jwt.claims','{"aal":"aal1"}',true)`,
+      );
+      await c.query("select public.configure_institutional_election($1,$2,3)", [
+        id,
+        "Sin MFA",
+      ]);
+    }),
+  );
+  // Existing institutional data is preserved when the new migration is loaded.
+  assert.equal(
+    (
+      await pool.query(
+        "select count(*) n from electoral_private.electors where election_id=$1",
+        [f.election],
+      )
+    ).rows[0].n,
+    "230",
+  );
+});
+
+async function schoolFixture() {
+  const users = [randomUUID(), randomUUID(), randomUUID()];
+  await pool.query("insert into auth.users select unnest($1::uuid[])", [users]);
+  const institutions = [];
+  const elections = [];
+  for (let n = 0; n < 2; n++) {
+    const iid = (
+      await session(admin, (c) =>
+        c.query("select public.provision_institution($1,$2,2) id", [
+          `Institución ficticia ${n}`,
+          users[n],
+        ]),
+      )
+    ).rows[0].id;
+    institutions.push(iid);
+    const eid = (
+      await session(users[n], (c) =>
+        c.query("select public.create_institution_election($1,2026,2) id", [
+          iid,
+        ]),
+      )
+    ).rows[0].id;
+    elections.push(eid);
+  }
+  return { users, institutions, elections };
+}
+test("instituciones: encargados no acceden a otros padrones, listas, mesas, auditorías o permisos", async () => {
+  const f = await schoolFixture();
+  const list = (
+    await session(f.users[0], (c) =>
+      c.query("select public.list_accessible_elections() value"),
+    )
+  ).rows[0].value;
+  assert.deepEqual(
+    list.map((e: { id: string }) => e.id),
+    [f.elections[0]],
+  );
+  const context = (
+    await session(f.users[0], (c) =>
+      c.query("select public.get_electoral_session() value"),
+    )
+  ).rows[0].value;
+  assert.equal(context.role, "administrator");
+  assert.equal(context.platform_operator, false);
+  const mine = (
+    await session(f.users[0], (c) =>
+      c.query("select public.list_my_institutions() value"),
+    )
+  ).rows[0].value;
+  assert.deepEqual(
+    mine.institutions.map((i: { id: string }) => i.id),
+    [f.institutions[0]],
+  );
+  for (const query of [
+    "select * from public.get_electoral_roll($1)",
+    "select public.get_electoral_lists($1)",
+    "select public.get_supervised_control($1)",
+    "select public.get_electoral_results($1)",
+    "select public.get_electoral_audit($1)",
+    "select public.electoral_roll_summary($1)",
+  ])
+    await assert.rejects(
+      session(f.users[0], (c) => c.query(query, [f.elections[1]])),
+    );
+  await assert.rejects(
+    session(f.users[0], (c) =>
+      c.query("select public.configure_institutional_election($1,$2,2)", [
+        f.elections[1],
+        "Intrusión",
+      ]),
+    ),
+  );
+  await assert.rejects(
+    session(f.users[0], (c) =>
+      c.query("select public.create_institution_election($1,2027,2)", [
+        f.institutions[1],
+      ]),
+    ),
+  );
+  await assert.rejects(
+    session(f.users[0], (c) =>
+      c.query("select public.manage_electoral_election(null,2099)"),
+    ),
+  );
+  await assert.rejects(
+    session(f.users[0], (c) =>
+      c.query("select public.create_configured_election($1,2099,2)", [
+        "Atajo legado",
+      ]),
+    ),
+  );
+  await assert.rejects(
+    session(f.users[0], (c) =>
+      c.query("select public.provision_institution($1,$2,2)", [
+        "No permitido",
+        f.users[2],
+      ]),
+    ),
+  );
+  await assert.rejects(
+    session(f.users[0], (c) =>
+      c.query("select public.assign_institution_staff($1,$2,$3,true)", [
+        f.institutions[1],
+        f.users[2],
+        "administrator",
+      ]),
+    ),
+  );
+  await assert.rejects(
+    session(f.users[0], async (c) => {
+      await c.query(
+        `select set_config('request.jwt.claims','{"aal":"aal1"}',true)`,
+      );
+      await c.query("select public.list_my_institutions()");
+    }),
+  );
+  await assert.rejects(
+    pool.query(
+      "update electoral_private.elections set institution_id=$2 where id=$1",
+      [f.elections[0], f.institutions[1]],
+    ),
+  );
+  await session(f.users[0], (c) =>
+    c.query("select public.assign_institution_staff($1,$2,$3,true)", [
+      f.institutions[0],
+      f.users[2],
+      "committee",
+    ]),
+  );
+  await assert.rejects(
+    session(f.users[2], (c) =>
+      c.query("select public.update_my_institution($1,$2,2)", [
+        f.institutions[0],
+        "Cambio no permitido",
+      ]),
+    ),
+  );
+  await session(f.users[0], (c) =>
+    c.query("select public.assign_institution_staff($1,$2,$3,false)", [
+      f.institutions[0],
+      f.users[2],
+      "committee",
+    ]),
+  );
+  assert.equal(
+    (
+      await session(f.users[2], (c) =>
+        c.query("select public.get_electoral_session() value"),
+      )
+    ).rows[0].value.role,
+    "unassigned",
+  );
+});
+test("instituciones: fotografías privadas, mismo DNI en dos colegios y recuentos separados de capacidad variable", async () => {
+  const f = await schoolFixture();
+  const lists: string[] = [];
+  const tokens: string[] = [];
+  const stations: string[] = [];
+  for (let n = 0; n < 2; n++) {
+    const eid = f.elections[n];
+    const path = `${eid}/foto-ficticia.webp`;
+    await session(f.users[n], (c) =>
+      c.query("select public.replace_electoral_roll($1,$2::jsonb)", [
+        eid,
+        JSON.stringify(
+          [1, 2].map((i) => ({
+            codigo: String(i).padStart(8, "0"),
+            nombre: `Estudiante ficticio ${i}`,
+            grado: 1,
+            seccion: "A",
+          })),
+        ),
+      ]),
+    );
+    await pool.query(
+      "insert into electoral_private.media_assets values($1,$2,true)",
+      [eid, path],
+    );
+    await pool.query(
+      "insert into storage.objects(bucket_id,name) values('electoral-media',$1)",
+      [path],
+    );
+    await session(f.users[n], async (c) => {
+      const l = (
+        await c.query(
+          "select public.manage_electoral_list($1,null,'Lista ficticia',1::smallint,array['Propuesta']) id",
+          [eid],
+        )
+      ).rows[0].id;
+      lists.push(l);
+      await c.query(
+        "select public.manage_electoral_candidate($1,null,$2,'Candidato ficticio','alcalde',0::smallint,'Alcaldía',1::smallint,'A')",
+        [eid, l],
+      );
+      await c.query(
+        "select public.manage_electoral_candidate($1,null,$2,'Regidor ficticio','regidor',1::smallint,'Cultura',1::smallint,'A')",
+        [eid, l],
+      );
+    });
+    const visible = (
+      await session(f.users[1 - n], (c) =>
+        c.query(
+          "select count(*) n from storage.objects where bucket_id='electoral-media' and name=$1",
+          [path],
+        ),
+      )
+    ).rows[0].n;
+    assert.equal(visible, "0");
+    await pool.query(
+      "update electoral_private.elections set security_approved=true where id=$1",
+      [eid],
+    );
+    await session(f.users[n], (c) =>
+      c.query("select public.manage_electoral_election($1,2026,'open')", [eid]),
+    );
+    const token = randomBytes(48).toString("base64url");
+    tokens.push(token);
+    stations.push(
+      (
+        await session(f.users[n], (c) =>
+          c.query(
+            "select public.create_voting_station($1,'Equipo ficticio',$2) id",
+            [eid, createHash("sha256").update(token).digest("hex")],
+          ),
+        )
+      ).rows[0].id,
+    );
+    await stationOp(token, "request", "00000001");
+    const turn = (
+      await pool.query(
+        "select id from electoral_private.supervised_turns where station_id=$1 and state='pending'",
+        [stations[n]],
+      )
+    ).rows[0].id;
+    await session(f.users[n], (c) =>
+      c.query("select public.manage_supervised_turn($1,$2,$3,true)", [
+        eid,
+        stations[n],
+        turn,
+      ]),
+    );
+  }
+  await assert.rejects(stationOp(tokens[0], "cast", null, lists[1]));
+  await Promise.all(
+    tokens.map((t, n) => stationOp(t, "cast", null, n === 0 ? lists[0] : null)),
+  );
+  for (let n = 0; n < 2; n++) {
+    await session(f.users[n], (c) =>
+      c.query("select public.manage_electoral_election($1,2026,'closed')", [
+        f.elections[n],
+      ]),
+    );
+    const r = (
+      await session(f.users[n], (c) =>
+        c.query("select public.get_electoral_results($1) value", [
+          f.elections[n],
+        ]),
+      )
+    ).rows[0].value;
+    assert.equal(r.electors, 2);
+    assert.equal(r.voters, 1);
+    assert.equal(r.blank, n);
+    await assert.rejects(
+      session(f.users[1 - n], (c) =>
+        c.query("select public.get_electoral_results($1)", [f.elections[n]]),
+      ),
+    );
+  }
+});
+
+test("actualización 006 → 007 → 008 conserva los 15 electores, sus identificadores y la elección cerrada a votos", async () => {
+  await initializeDatabase([
+    "202610190001_electoral_security.sql",
+    "202610190002_complete_electoral_system.sql",
+    "202610190003_private_electoral_media.sql",
+    "202610190004_secure_application_sessions.sql",
+    "202610210005_institutional_drafts.sql",
+    "202610210006_supervised_dni.sql",
+  ]);
+  const id = (
+    await session(admin, (c) =>
+      c.query("select public.create_institutional_election(2026) id"),
+    )
+  ).rows[0].id;
+  await session(admin, (c) =>
+    c.query("select public.replace_electoral_roll($1,$2::jsonb)", [
+      id,
+      JSON.stringify(
+        Array.from({ length: 15 }, (_, i) => ({
+          codigo: String(i + 1).padStart(8, "0"),
+          nombre: `Estudiante ficticio ${i + 1}`,
+          grado: 1,
+          seccion: "A",
+        })),
+      ),
+    ]),
+  );
+  await session(admin, (c) =>
+    c.query("select public.configure_supervised_dni($1)", [id]),
+  );
+  const beforeRows = (
+    await pool.query(
+      "select * from electoral_private.electors where election_id=$1 order by code",
+      [id],
+    )
+  ).rows;
+  for (const name of [
+    "202610210007_institutional_configuration.sql",
+    "202610210008_institution_isolation.sql",
+  ])
+    await pool.query(await readFile(`supabase/migrations/${name}`, "utf8"));
+  const afterRows = (
+    await pool.query(
+      "select * from electoral_private.electors where election_id=$1 order by code",
+      [id],
+    )
+  ).rows;
+  assert.deepEqual(afterRows, beforeRows);
+  const election = (
+    await pool.query(
+      "select state,security_approved,expected_students,institution_id from electoral_private.elections where id=$1",
+      [id],
+    )
+  ).rows[0];
+  assert.equal(election.state, "draft");
+  assert.equal(election.security_approved, false);
+  assert.equal(election.expected_students, 230);
+  assert.ok(election.institution_id);
+  const accessible = (
+    await session(admin, (c) =>
+      c.query("select public.list_accessible_elections() value"),
+    )
+  ).rows[0].value;
+  assert.equal(accessible[0].id, id);
+  assert.equal(
+    (
+      await session(admin, (c) =>
+        c.query("select * from public.get_electoral_roll($1)", [id]),
+      )
+    ).rowCount,
+    15,
   );
 });

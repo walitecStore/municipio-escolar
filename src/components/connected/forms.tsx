@@ -73,14 +73,74 @@ function OperationForm({
     </form>
   );
 }
-export function ConnectedCreateElection() {
+export function ConnectedCreateElection({
+  showDemonstrations = true,
+  expected = 230,
+  year = 2026,
+  institutions = [],
+}: {
+  institutions?: { id: string; name: string; expected_students: number }[];
+  showDemonstrations?: boolean;
+  expected?: number;
+  year?: number;
+}) {
+  const [selectedInstitution, setSelectedInstitution] = useState(
+    institutions[0]?.id ?? "",
+  );
+  const selected = institutions.find((i) => i.id === selectedInstitution);
   return (
-    <OperationForm operation={createElectionAction} label="Crear borrador">
-      <label htmlFor="election-purpose">Modalidad</label>
-      <select id="election-purpose" name="purpose" defaultValue="official">
-        <option value="official">Institucional · preparación oficial</option>
-        <option value="test">Pruebas · solo datos ficticios</option>
-      </select>
+    <OperationForm
+      operation={createElectionAction}
+      label="Crear borrador"
+      onReset={(event) => event.preventDefault()}
+    >
+      {showDemonstrations ? (
+        <>
+          <label htmlFor="election-purpose">Modalidad</label>
+          <select id="election-purpose" name="purpose" defaultValue="official">
+            <option value="official">
+              Institucional · preparación oficial
+            </option>
+            <option value="test">Pruebas · solo datos ficticios</option>
+          </select>
+        </>
+      ) : (
+        <>
+          <input type="hidden" name="purpose" value="official" />
+          <input type="hidden" name="configured" value="yes" />
+          <label>
+            Institución educativa
+            <input
+              type="hidden"
+              name="institution"
+              value={selectedInstitution}
+            />
+            <select
+              value={selectedInstitution}
+              onChange={(event) => setSelectedInstitution(event.target.value)}
+              required
+            >
+              {institutions.map((i) => (
+                <option key={i.id} value={i.id}>
+                  {i.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Total previsto de electores
+            <input
+              type="number"
+              name="expected"
+              key={selectedInstitution}
+              defaultValue={selected?.expected_students ?? expected}
+              min={1}
+              max={10000}
+              required
+            />
+          </label>
+        </>
+      )}
       <label className="blank-vote">
         <input type="checkbox" name="confirm" value="yes" required />
         Confirmo que crear el borrador no autoriza ni abre la votación.
@@ -92,7 +152,7 @@ export function ConnectedCreateElection() {
         name="year"
         min={2026}
         max={2100}
-        defaultValue={2026}
+        defaultValue={year}
         required
       />
     </OperationForm>
@@ -172,7 +232,7 @@ export function ConnectedImportRoll({
       <p>
         Una hoja XLSX con {election.purpose === "official" ? "dni" : "codigo"},
         nombre, grado, seccion. El DNI debe estar en formato Texto y contener 8
-        dígitos. Máximo 230 filas y 2 MB.{" "}
+        dígitos. Máximo {election.expected_students} filas y 2 MB.{" "}
         {election.purpose === "test"
           ? "Solo plantilla ficticia en modo pruebas."
           : "Padrón institucional: solo datos autorizados; no compartir archivos ni credenciales."}
@@ -518,7 +578,8 @@ export function ConnectedMediaUpload({
     >
       <p>
         JPEG, PNG o WebP de hasta 5 MB. Se eliminan metadatos y se utiliza un
-        nombre opaco. No subas fotografías reales durante las pruebas.
+        nombre opaco. Carga únicamente fotografías con autorización
+        institucional documentada.
       </p>
       <input
         aria-label="Fotografía autorizada"

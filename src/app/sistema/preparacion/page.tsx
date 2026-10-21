@@ -4,7 +4,7 @@ import { z } from "zod";
 import { verifiedSession } from "@/lib/connected/session";
 import { electionSchema, isStaff } from "@/lib/connected/policy";
 import { integrationConfig } from "@/lib/connected/env";
-import { institution } from "@/lib/institution";
+import { demonstrationsEnabled } from "@/lib/platform";
 export default async function Page() {
   const { client, session } = await verifiedSession();
   if (
@@ -15,14 +15,17 @@ export default async function Page() {
   if (!isStaff(session)) throw new Error("Acceso restringido al personal.");
   const result = await client.rpc("list_accessible_elections");
   if (result.error) throw new Error("Estado institucional no disponible.");
-  const elections = z.array(electionSchema).parse(result.data);
+  const elections = z
+    .array(electionSchema)
+    .parse(result.data)
+    .filter((e) => demonstrationsEnabled() || e.purpose === "official");
   const config = integrationConfig();
   return (
     <section className="panel">
       <h1>Preparación institucional</h1>
       <p>
-        {institution.name} · Secundaria · 230 estudiantes previstos · 15
-        secciones.
+        Revisa la preparación de las instituciones y elecciones autorizadas para
+        tu cuenta. Cada elección conserva su padrón y su total de electores.
       </p>
       <h2>Estado de esta aplicación</h2>
       <ul>
@@ -66,13 +69,16 @@ export default async function Page() {
         <li>
           Autorizar el tratamiento y la custodia del padrón y las fotografías.
         </li>
-        <li>Importar y revisar los 230 electores y las 15 secciones.</li>
+        <li>
+          Importar y revisar el total de electores configurado y sus secciones.
+        </li>
         <li>
           Completar listas, propuestas, candidatos y sus fotografías
           autorizadas.
         </li>
         <li>
-          Vincular las cuentas y preparar la entrega individual de credenciales.
+          En modalidad presencial, habilitar equipos y verificar identidades; en
+          modalidad individual, vincular cuentas y entregar credenciales.
         </li>
         <li>
           Validar Auth, MFA, RLS, concurrencia, doble voto y resultados

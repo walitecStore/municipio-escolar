@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { institution } from "@/lib/institution";
+import type { PublicInstitution } from "@/lib/platform";
 import {
   GraduationCap,
   House,
@@ -22,7 +22,15 @@ const links = [
   ["/votacion", "Simulador de votación", Vote],
   ["/resultados", "Resultados (demo)", ChartNoAxesCombined],
 ] as const;
-export function Shell({ children }: { children: React.ReactNode }) {
+export function Shell({
+  children,
+  institution,
+  showDemonstrations = false,
+}: {
+  children: React.ReactNode;
+  institution: PublicInstitution;
+  showDemonstrations?: boolean;
+}) {
   const path = usePathname();
   const connected = path.startsWith("/sistema");
   const demo = links.some(([href]) => href === path);
@@ -58,22 +66,24 @@ export function Shell({ children }: { children: React.ReactNode }) {
             Acceso al sistema
           </Link>
         </nav>
-        <details className="demo-navigation" open={demo}>
-          <summary>Recorrido de demostración</summary>
-          <nav aria-label="Navegación principal">
-            {links.map(([href, label, Icon]) => (
-              <Link
-                key={href}
-                href={href}
-                className={`nav-link ${path === href ? "active" : ""}`}
-                aria-current={path === href ? "page" : undefined}
-              >
-                <Icon size={19} />
-                {label}
-              </Link>
-            ))}
-          </nav>
-        </details>
+        {showDemonstrations && (
+          <details className="demo-navigation" open={demo}>
+            <summary>Recorrido de demostración</summary>
+            <nav aria-label="Navegación principal">
+              {links.map(([href, label, Icon]) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className={`nav-link ${path === href ? "active" : ""}`}
+                  aria-current={path === href ? "page" : undefined}
+                >
+                  <Icon size={19} />
+                  {label}
+                </Link>
+              ))}
+            </nav>
+          </details>
+        )}
         <div className="sidebar-bottom">
           <div className="shield-circle">
             <ShieldCheck size={22} />

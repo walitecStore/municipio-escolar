@@ -13,7 +13,7 @@ export default async function Page({
       <Heading
         eyebrow="ACCESO AUTORIZADO"
         title="Iniciar sesión electoral"
-        description="Acceso real mediante Supabase Auth. No se permite registro público ni se usan cuentas de demostración para autenticar."
+        description="Identifícate con tu cuenta autorizada. El acceso del comité requiere verificación de dos factores."
       />
       <section className="panel">
         {status.password === "updated" && (

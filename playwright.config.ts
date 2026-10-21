@@ -15,5 +15,10 @@ export default defineConfig({
     command: "npm run start -- --port 3100",
     url: "http://127.0.0.1:3100",
     reuseExistingServer: false,
+    env: {
+      ELECTORAL_DEMO_ENABLED: "true",
+      ELECTORAL_DEPLOYMENT_STAGE: "local-test",
+      APP_ORIGIN: "http://127.0.0.1:3100",
+    },
   },
 });

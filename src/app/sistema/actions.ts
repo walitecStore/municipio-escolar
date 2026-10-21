@@ -1,4 +1,5 @@
 "use server";
+import { demonstrationsEnabled } from "@/lib/platform";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -15,7 +16,11 @@ import {
   openingAllowed,
 } from "@/lib/connected/policy";
 import { validateRows, isDemoOnly } from "@/lib/roll/model";
-import { readRollExcel, MAX_FILE_BYTES } from "@/lib/roll/excel";
+import {
+  readRollExcel,
+  MAX_FILE_BYTES,
+  RollImportError,
+} from "@/lib/roll/excel";
 import {
   issueCredential,
   confirmCredentialDelivery,
@@ -85,29 +90,43 @@ export async function createElectionAction(
       .parse(value(form, "year"));
     const purpose = z
       .enum(["test", "official"])
-      .parse(value(form, "purpose") || "test");
+      .parse(value(form, "purpose") || "official");
+    if (purpose === "test" && !demonstrationsEnabled()) return fail();
     if (purpose === "official" && form.get("confirm") !== "yes")
       return {
         error:
           "Confirma la creación del borrador institucional sin abrir la votación.",
       };
+    const configured = form.get("configured") === "yes";
     const result =
-      purpose === "official"
-        ? await access.client.rpc("create_institutional_election", {
+      configured && purpose === "official"
+        ? await access.client.rpc("create_institution_election", {
+            p_institution: uuid.parse(value(form, "institution")),
             p_year: year,
+            p_expected: z.coerce
+              .number()
+              .int()
+              .min(1)
+              .max(10000)
+              .parse(value(form, "expected")),
           })
-        : await access.client.rpc("manage_electoral_election", {
-            p_id: null,
-            p_year: year,
-            p_state: "draft",
-          });
+        : purpose === "official"
+          ? await access.client.rpc("create_institutional_election", {
+              p_year: year,
+            })
+          : await access.client.rpc("manage_electoral_election", {
+              p_id: null,
+              p_year: year,
+              p_state: "draft",
+            });
     if (
       purpose === "official" &&
       ["PGRST202", "42883"].includes(result.error?.code ?? "")
     )
       return {
-        error:
-          "La preparación institucional requiere la migración adicional 005. Consulta la guía de gestión institucional; no repitas 001–004.",
+        error: configured
+          ? "La configuración institucional requiere las migraciones 007 y 008. No repitas las migraciones anteriores."
+          : "La preparación institucional requiere la migración adicional 005. Consulta la guía de gestión institucional; no repitas 001–004.",
       };
     if (result.error?.code === "23505")
       return {
@@ -163,6 +182,7 @@ export async function importRollAction(
       return { error: "Selecciona un XLSX de hasta 2 MB." };
     const result = await readRollExcel(await file.arrayBuffer(), {
       allowDni: access.election.purpose === "official",
+      maxRows: access.election.expected_students,
     });
     if (result.errors.length)
       return {
@@ -198,7 +218,8 @@ export async function importRollAction(
         ? `Agregados ${result.students.length} registros sin reemplazar los grados existentes. Los duplicados se rechazan de forma transaccional.`
         : `Importados ${result.students.length} registros en una transacción. En modalidad individual vincula las cuentas Auth; para DNI presencial usa Mesas · DNI. Las credenciales anteriores fueron revocadas.`,
     };
-  } catch {
+  } catch (error) {
+    if (error instanceof RollImportError) return { error: error.message };
     return fail();
   }
 }

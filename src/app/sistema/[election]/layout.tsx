@@ -13,6 +13,7 @@ export default async function Layout({
   const links = isStaff(session)
     ? [
         ["", "Resumen"],
+        ["/configuracion", "Configuración"],
         ["/padron", "Padrón"],
         ["/listas", "Listas y candidatos"],
         ["/credenciales", "Credenciales"],

@@ -1,7 +1,7 @@
 {
   "name": "municipio-escolar",
   "version": "1.0.0",
-  "description": "Plataforma web para realizar elecciones digitales en una instituci\u00f3n educativa del Per\u00fa.",
+  "description": "Plataforma web para realizar elecciones digitales en una institución educativa del Perú.",
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0",
     "build": "next build",
@@ -12,7 +12,8 @@
     "test:unit": "tsx --test tests/unit/*.test.ts",
     "type-check": "tsc --noEmit",
     "test:postgres": "bash scripts/test-postgres.sh",
-    "test:connected": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test --config=playwright.connected.config.ts"
+    "test:connected": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test --config=playwright.connected.config.ts",
+    "test:operational": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test --config=playwright.operational.config.ts"
   },
   "repository": {
     "type": "git",
