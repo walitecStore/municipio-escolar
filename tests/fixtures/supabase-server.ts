@@ -41,6 +41,7 @@ const passwords = new Map<string, string>();
 let passwordUpdates = 0;
 let recoverRequests = 0;
 let recoveryProvider = "none";
+let institutionalFunctionMissing = false;
 let recoveryRedirectValid = false;
 let challenge = "";
 const recoveryTokens = new Map<string, Claims>();
@@ -216,6 +217,7 @@ const server = http.createServer(async (req, res) => {
       passwordUpdates = 0;
       recoverRequests = 0;
       recoveryProvider = "none";
+      institutionalFunctionMissing = false;
       recoveryRedirectValid = false;
       challenge = "";
       recoveryTokens.clear();
@@ -227,6 +229,8 @@ const server = http.createServer(async (req, res) => {
       const data = JSON.parse((await body(req)).toString());
       if (typeof data.recoveryProvider === "string")
         recoveryProvider = data.recoveryProvider;
+      if (typeof data.institutionalFunctionMissing === "boolean")
+        institutionalFunctionMissing = data.institutionalFunctionMissing;
       if (data.state) phase = data.state;
       if (data.purpose) purpose = data.purpose;
       if (typeof data.approved === "boolean") approved = data.approved;
@@ -538,6 +542,15 @@ const server = http.createServer(async (req, res) => {
             },
           ],
         });
+      }
+      if (name === "create_institutional_election") {
+        if (institutionalFunctionMissing)
+          return send({ code: "PGRST202", message: "Missing" }, 404);
+        if (!staff(c)) return send({ message: "Denied" }, 403);
+        phase = "draft";
+        purpose = "official";
+        approved = false;
+        return send(electionId);
       }
       if (name === "manage_electoral_election") {
         phase = args.p_state;

@@ -6,7 +6,7 @@ test("las siete páginas, fotografías y navegación móvil funcionan", async ({
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   for (const route of [
-    "/",
+    "/demostracion",
     "/estudiantes",
     "/administracion",
     "/padron",
@@ -21,7 +21,7 @@ test("las siete páginas, fotografías y navegación móvil funcionan", async ({
       page.getByText("Datos ficticios. No se registran votos oficiales."),
     ).toBeVisible();
   }
-  await page.goto("/");
+  await page.goto("/demostracion");
   await page.screenshot({
     path: "test-results/inicio-escritorio.png",
     fullPage: true,
@@ -34,7 +34,7 @@ test("las siete páginas, fotografías y navegación móvil funcionan", async ({
       .toBeGreaterThan(0);
   }
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
+  await page.goto("/demostracion");
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,

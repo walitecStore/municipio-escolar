@@ -1,19 +1,21 @@
 # ELECCIONES DEL MUNICIPIO ESCOLAR
 
 Plataforma web para realizar elecciones digitales en una institución educativa del Perú.
-Proyecto desarrollado con Codex Web y GitHub. Estado: desarrollo y validación local,
-sin conexión al proyecto Supabase real y sin despliegue en Vercel.
+Proyecto desarrollado con Codex Web y GitHub. La portada institucional está en `/`
+y la gestión conectada en `/sistema`. El responsable confirmó Supabase y Vercel
+configurados y el cambio de contraseña operativo. Esta rama prepara la gestión
+institucional y requiere la migración adicional 005; no habilita votaciones.
 
 ## Institución
 
 **I.E. ESTEBAN PAVLETICH TRUJILLO**, Educación Secundaria. Año electoral inicial: 2026. Meta: 230 estudiantes. Grados 1.º–5.º, cada uno con secciones A, B y C.
 Configuración central en `src/lib/institution.ts`.
 
-## Componentes implementados
+## Demostración conservada y backend de gestión
 
-| Componente          | Web actual                                                                                                                          | Backend preparado y probado                                                 |
+| Componente          | Recorrido de demostración                                                                                                           | Backend preparado y probado                                                 |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Inicio y acceso     | Portada adaptable y acceso ilustrativo en español                                                                                   | Auth real aún no conectado                                                  |
+| Inicio y acceso     | Portada adaptable y acceso ilustrativo en español                                                                                   | Auth real, MFA y recuperación en `/sistema`                                 |
 | Listas y candidatos | Crear/editar/eliminar listas, alcalde y regidores, cargos, grados, secciones, símbolos, fotos referenciales y propuestas en memoria | Tablas, restricciones y RPC administrativas                                 |
 | Padrón              | Excel ficticio de 230 registros, vista previa, validación, filtros, correcciones y conteos                                          | Reemplazo atómico, códigos únicos y acceso administrativo                   |
 | Credenciales        | Entrega individual ficticia, recuperación, ocultación y bloqueo por participación                                                   | Tokens aleatorios, hash, caducidad, versiones y confirmación supervisada    |
@@ -31,7 +33,8 @@ son ejemplos independientes de la selección local. Las exportaciones dicen
 
 Next.js App Router, TypeScript, Tailwind CSS, ESLint, ExcelJS, pdf-lib y Sharp.
 Backend SQL compatible con Supabase; PostgreSQL 17 en Docker para pruebas de
-concurrencia y PGlite para regresión local. Supabase y Vercel no están conectados.
+concurrencia y PGlite para regresión local. El SDK de Supabase opera en el servidor
+con las variables y sesiones autorizadas de cada instalación.
 
 ## Instalación y ejecución
 
@@ -82,7 +85,7 @@ La descarga depende de la política de red. Los scripts usan sintaxis POSIX.
 No se guardan Excel, PDF ni datos de estudiantes en Git; las pruebas los generan
 en memoria y las carpetas de resultados están ignoradas.
 
-## Migraciones y conexión futura
+## Migraciones y operación
 
 El orden completo está en [supabase/README.md](supabase/README.md):
 
@@ -90,9 +93,11 @@ El orden completo está en [supabase/README.md](supabase/README.md):
 2. `202610190002_complete_electoral_system.sql`.
 3. `202610190003_private_electoral_media.sql`.
 4. `202610190004_secure_application_sessions.sql`.
+5. `202610210005_institutional_drafts.sql`, nueva y pendiente de revisión manual.
 
-**No se han ejecutado en Supabase real.** No ejecutar los fixtures de pruebas en
-ese servicio. Antes de conectar, autorizar un entorno de pruebas, configurar Auth,
+El responsable confirmó instaladas 001–004: **no repetirlas**. Codex no ejecutó
+SQL en Supabase alojado. Aplicar solo 005 después de revisar la guía de gestión
+institucional. No ejecutar los fixtures de prueba en ese servicio. Conservar Auth,
 MFA administrativo, sesiones de servidor y registro controlado de administradores.
 Mantener `electoral_private` y `ballot_box` fuera de los esquemas expuestos de la
 Data API. La aplicación usa RPC administrativas; no exponer tablas privadas para
@@ -100,14 +105,16 @@ solucionar errores de integración.
 
 `src/lib/electoral/backend.ts` recibe un transporte RPC ligado a una sesión ya
 verificada: no conecta servicios ni verifica JWT por sí mismo. La gestión web
-actual sigue siendo ficticia. También faltan entrega individual real, validación
-HTTP de las políticas de Storage, configuración de logs, límites de solicitudes,
-respaldos y autorización del comité antes de una elección real.
+conectada verifica la sesión en `src/lib/connected` y utiliza ese transporte.
+Antes de abrir una elección siguen siendo necesarias la entrega supervisada,
+validación HTTP de Storage y RLS alojados, revisión de logs y límites, respaldos
+y autorización del comité.
 
 ## Rutas
 
-`/`, `/estudiantes`, `/administracion`, `/padron`, `/candidatos`, `/votacion` y
-`/resultados`. La apertura/cierre simulados se realizan en Administración; el
+Institucional: `/`. Gestión: `/sistema`, `/sistema/preparacion`, `/sistema/nueva`
+y los módulos autorizados de cada elección. Demostración: `/demostracion`,
+`/estudiantes`, `/administracion`, `/padron`, `/candidatos`, `/votacion` y `/resultados`. La apertura/cierre simulados se realizan en Administración; el
 padrón y las candidaturas se bloquean al abrir, y los resultados se habilitan al
 cerrar. PostgreSQL aplica sus controles de forma independiente de la interfaz.
 
@@ -126,18 +133,18 @@ No representan estudiantes del colegio ni implican su respaldo. Las fotografías
 reales deberán sanearse en el servidor, contar con autorización y permanecer en
 el bucket privado preparado por la migración 003.
 
-## Integración real con Supabase (preparada, sin activar el proyecto alojado)
+## Integración con Supabase y preparación institucional
 
 La ruta `/sistema` utiliza el SDK oficial en el servidor para Auth, sesiones
 HttpOnly, MFA TOTP de administrador/comité, RPC de padrón/listas/credenciales/voto,
 recuento tras cierre y Storage privado. La demostración original se conserva.
 
-La conexión y la emisión están apagadas por defecto. No se han usado credenciales
-reales ni ejecutado SQL en Supabase. La guía completa de configuración manual,
+La plantilla de variables mantiene conexión y emisión apagadas por defecto.
+Las pruebas locales no usan credenciales reales ni ejecutan SQL en Supabase alojado. La guía completa de configuración manual,
 variables, creación controlada de cuentas y validación está en
 [docs/ACTIVACION-SUPABASE.md](docs/ACTIVACION-SUPABASE.md).
 
-La secuencia actual es **001 → 002 → 003 → 004**. La migración 004 añade roles de
+La secuencia completa es **001 → 002 → 003 → 004 → 005**; ejecutar únicamente las pendientes. La migración 004 añade roles de
 personal, contexto de sesión, MFA AAL2 para administración y aprobación de
 seguridad para elecciones oficiales. No basta con aplicar solo las tres primeras.
 
@@ -151,3 +158,5 @@ pendiente de la configuración y autorización manual.
 
 Cambio de contraseña del personal en `/sistema/perfil` y recuperación en
 `/sistema/restablecer`: [configuración exacta de Auth y pruebas](docs/RECUPERACION-CONTRASENA.md).
+
+Gestión conectada y preparación del borrador institucional: [guía de gestión institucional](docs/GESTION-INSTITUCIONAL.md). La migración adicional 005 requiere revisión y ejecución manual; no abre la votación.

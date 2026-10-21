@@ -59,6 +59,7 @@ async function staffAccess(
   const access = await protectedElection(id, true);
   if (
     access.election.purpose === "official" &&
+    access.election.state !== "draft" &&
     !config.official &&
     !allowOfficialClose
   )
@@ -82,11 +83,37 @@ export async function createElectionAction(
       .min(2026)
       .max(2100)
       .parse(value(form, "year"));
-    const result = await access.client.rpc("manage_electoral_election", {
-      p_id: null,
-      p_year: year,
-      p_state: "draft",
-    });
+    const purpose = z
+      .enum(["test", "official"])
+      .parse(value(form, "purpose") || "test");
+    if (purpose === "official" && form.get("confirm") !== "yes")
+      return {
+        error:
+          "Confirma la creación del borrador institucional sin abrir la votación.",
+      };
+    const result =
+      purpose === "official"
+        ? await access.client.rpc("create_institutional_election", {
+            p_year: year,
+          })
+        : await access.client.rpc("manage_electoral_election", {
+            p_id: null,
+            p_year: year,
+            p_state: "draft",
+          });
+    if (
+      purpose === "official" &&
+      ["PGRST202", "42883"].includes(result.error?.code ?? "")
+    )
+      return {
+        error:
+          "La preparación institucional requiere la migración adicional 005. Consulta la guía de gestión institucional; no repitas 001–004.",
+      };
+    if (result.error?.code === "23505")
+      return {
+        error:
+          "Ya existe una elección de ese año y modalidad. Utiliza el borrador existente.",
+      };
     if (result.error || !uuid.safeParse(result.data).success) return fail();
     id = result.data;
   } catch {

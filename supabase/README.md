@@ -77,3 +77,5 @@ La guía actual y completa de activación es `docs/ACTIVACION-SUPABASE.md`.
 Con la 004, `is_admin` requiere TOTP/AAL2 además de membresía. Administrador y comité
 son perfiles de personal autorizado con las mismas facultades actuales. Las
 cuentas sin membresía no reciben permisos por sus metadatos editables.
+
+La migración adicional `202610210005_institutional_drafts.sql` se aplica después de 001–004 para preparar borradores institucionales sin habilitar la elección. Ver [compatibilidad y operación](../docs/GESTION-INSTITUCIONAL.md). No repetir las migraciones ya instaladas.

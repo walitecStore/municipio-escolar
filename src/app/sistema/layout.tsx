@@ -11,9 +11,8 @@ export default function ConnectedLayout({
   return (
     <>
       <div className="notice">
-        ÁREA CONECTADA · Solo identidades ficticias durante las pruebas. La
-        emisión de votos y la activación oficial requieren habilitación
-        explícita del operador.{" "}
+        GESTIÓN ELECTORAL · Preparar un borrador no abre la votación. Cada
+        elección indica su modalidad y estado.{" "}
         <Link className="text-link" href="/sistema">
           Inicio del sistema
         </Link>
