@@ -88,10 +88,12 @@ export async function verifyRecoveryAction(
   _: PasswordState,
   form: FormData,
 ): Promise<PasswordState> {
+  let phase = "origin";
   try {
     await mutationOrigin();
     await clearRecoveryCookies();
     const client = await recoveryClient();
+    phase = "proof";
     const hash = String(form.get("token_hash") ?? "");
     const access = String(form.get("access_token") ?? "");
     const refresh = String(form.get("refresh_token") ?? "");
@@ -115,11 +117,13 @@ export async function verifyRecoveryAction(
       failed = !!response.error;
     }
     if (failed) throw new Error("Invalid recovery");
+    phase = "verified_session";
     const verified = await verifiedRecovery();
     return { ready: true, mfa: !!verified.factor };
   } catch {
+    console.info(JSON.stringify({ event: "password_recovery_verify", phase, outcome: "failed" }));
     await clearRecoveryCookies();
-    return { error: expired, expired: true };
+    return phase === "proof" ? { error: expired, expired: true } : { error: "No se pudo completar la verificación. Contacta al administrador." };
   }
 }
 export async function exchangeRecoveryCodeAction(
