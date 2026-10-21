@@ -1,5 +1,10 @@
 "use client";
-import { useActionState, useState, type ReactNode } from "react";
+import {
+  useActionState,
+  useState,
+  type ReactNode,
+  type FormEventHandler,
+} from "react";
 import {
   createElectionAction,
   electionStateAction,
@@ -46,18 +51,20 @@ function OperationForm({
   children,
   label,
   disabled = false,
+  onReset,
 }: {
   operation: Operation;
   children: ReactNode;
   label: string;
   disabled?: boolean;
+  onReset?: FormEventHandler<HTMLFormElement>;
 }) {
   const [state, action, pending] = useActionState(
     operation,
     {} as OperationState,
   );
   return (
-    <form action={action}>
+    <form action={action} onReset={onReset}>
       {children}
       <Notice state={state} />
       <button className="button primary" disabled={pending || disabled}>
@@ -137,19 +144,51 @@ export function ConnectedImportRoll({
 }: {
   election: ConnectedElection;
 }) {
+  const [mode, setMode] = useState("replace");
   return (
     <OperationForm
+      onReset={(event) => {
+        // Keep the selected import mode across successful Server Actions.
+        event.preventDefault();
+        event.currentTarget
+          .querySelectorAll<HTMLInputElement>('input[type="file"]')
+          .forEach((input) => {
+            input.value = "";
+          });
+        event.currentTarget
+          .querySelectorAll<HTMLInputElement>('input[type="checkbox"]')
+          .forEach((input) => {
+            input.checked = false;
+          });
+      }}
       operation={importRollAction.bind(null, election.id)}
-      label="Reemplazar padrón mediante RPC"
+      label={
+        mode === "append"
+          ? "Agregar grado al padrón mediante RPC"
+          : "Reemplazar padrón mediante RPC"
+      }
       disabled={election.state !== "draft"}
     >
       <p>
-        Una hoja XLSX con codigo, nombre, grado, seccion. Máximo 230 filas y 2
-        MB.{" "}
+        Una hoja XLSX con {election.purpose === "official" ? "dni" : "codigo"},
+        nombre, grado, seccion. El DNI debe estar en formato Texto y contener 8
+        dígitos. Máximo 230 filas y 2 MB.{" "}
         {election.purpose === "test"
           ? "Solo plantilla ficticia en modo pruebas."
           : "Padrón institucional: solo datos autorizados; no compartir archivos ni credenciales."}
       </p>
+      <input type="hidden" name="mode" value={mode} />
+      {election.purpose === "official" && (
+        <label>
+          Tipo de importación
+          <select value={mode} onChange={(e) => setMode(e.target.value)}>
+            <option value="replace">Reemplazar padrón completo</option>
+            <option value="append">
+              Agregar grado/sección sin borrar registros
+            </option>
+          </select>
+        </label>
+      )}
       <input
         aria-label="Excel para PostgreSQL"
         type="file"
@@ -159,8 +198,10 @@ export function ConnectedImportRoll({
         disabled={election.state !== "draft"}
       />
       <label className="blank-vote">
-        <input type="checkbox" name="confirm" value="yes" required /> Confirmo
-        el reemplazo completo y la revocación de credenciales previas.
+        <input type="checkbox" name="confirm" value="yes" required />{" "}
+        {mode === "append"
+          ? "Confirmo que se agregarán registros sin reemplazar los existentes."
+          : "Confirmo el reemplazo completo y la revocación de credenciales previas."}
       </label>
     </OperationForm>
   );
@@ -198,11 +239,12 @@ export function ConnectedCorrectStudent({
         >
           <input name="elector" type="hidden" value={student.id} />
           <label>
-            Código
+            {election.supervised_dni ? "DNI" : "Código"}
             <input
               name="code"
               required
-              maxLength={30}
+              maxLength={election.supervised_dni ? 8 : 30}
+              pattern={election.supervised_dni ? "[0-9]{8}" : undefined}
               defaultValue={student.code}
             />
           </label>
@@ -231,15 +273,19 @@ export function ConnectedCorrectStudent({
               ))}
             </select>
           </label>
-          <label>
-            UUID de usuario creado manualmente en Supabase Auth
-            <input
-              name="authUser"
-              defaultValue={student.auth_user_id ?? ""}
-              placeholder="Vacío para dejar sin vincular"
-              autoComplete="off"
-            />
-          </label>
+          {election.supervised_dni ? (
+            <input type="hidden" name="authUser" value="" />
+          ) : (
+            <label>
+              UUID de usuario creado manualmente en Supabase Auth
+              <input
+                name="authUser"
+                defaultValue={student.auth_user_id ?? ""}
+                placeholder="Vacío para dejar sin vincular"
+                autoComplete="off"
+              />
+            </label>
+          )}
         </OperationForm>
       )}
     </>

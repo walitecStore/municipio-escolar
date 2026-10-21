@@ -118,3 +118,44 @@ test("fotografías: saneamiento elimina metadatos y rechaza formatos no admitido
     ),
   );
 });
+
+test("acta institucional incluye insignia embebida y espacios de firma, exige elección cerrada", async () => {
+  const { default: sharp } = await import("sharp");
+  const png = await sharp({
+    create: { width: 32, height: 32, channels: 3, background: "#113355" },
+  })
+    .png()
+    .toBuffer();
+  const result = makeDemoResults([slate]);
+  const pdf = await exportResultsPdf(
+    result,
+    "Institución ficticia",
+    "official",
+    {
+      year: 2026,
+      mayors: { [slate.id]: "Candidato ficticio" },
+      signatories: Array.from({ length: 7 }, (_, i) => ({
+        role: `Cargo ficticio ${i}`,
+        name: `Firmante ficticio ${i}`,
+      })),
+      insignia: { bytes: png, type: "image/png" },
+    },
+  );
+  const document = await PDFDocument.load(pdf);
+  assert.ok(document.getPageCount() >= 1);
+  assert.ok(
+    document.getPages()[0].node.Resources()?.toString().includes("XObject"),
+  );
+  await assert.rejects(
+    exportResultsPdf(
+      { ...result, state: "open" as "closed" },
+      "Institución ficticia",
+      "official",
+    ),
+  );
+  await assert.rejects(
+    exportResultsPdf(result, "Institución ficticia", "official", {
+      insignia: { bytes: new Uint8Array(1024 * 1024 + 1), type: "image/png" },
+    }),
+  );
+});

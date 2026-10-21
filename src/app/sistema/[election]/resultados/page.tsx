@@ -1,5 +1,5 @@
 import { protectedElection } from "@/lib/connected/session";
-import { resultsSchema } from "@/lib/connected/data";
+import { resultsSchema, listsSchema } from "@/lib/connected/data";
 import { ConnectedResults } from "@/components/connected/results";
 export default async function Page({
   params,
@@ -23,6 +23,19 @@ export default async function Page({
   });
   if (response.error)
     throw new Error("Resultados no disponibles para esta sesión.");
+  const listsResponse = await client.rpc("get_electoral_lists", {
+    p_election: id,
+  });
+  if (listsResponse.error)
+    throw new Error("No se pudieron verificar las candidaturas del acta.");
+  const mayors = Object.fromEntries(
+    listsSchema
+      .parse(listsResponse.data)
+      .map((l) => [
+        l.id,
+        l.candidates.find((c) => c.role === "alcalde")?.name ?? "No consignado",
+      ]),
+  );
   return (
     <section className="panel">
       <h1>Resultados de PostgreSQL</h1>
@@ -35,6 +48,8 @@ export default async function Page({
       <ConnectedResults
         results={resultsSchema.parse(response.data)}
         school={election.school}
+        year={election.year}
+        mayors={mayors}
         purpose={election.purpose}
       />
     </section>

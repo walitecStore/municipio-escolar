@@ -5,11 +5,26 @@ export function ConnectedResults({
   results,
   school,
   purpose,
+  year,
+  mayors = {},
 }: {
   results: ElectoralResults;
   school: string;
   purpose: "test" | "official";
+  year?: number;
+  mayors?: Record<string, string>;
 }) {
+  const roles = [
+    "Director/a",
+    "Presidencia del comité electoral",
+    "Organización / apoyo electoral",
+    "Presidencia de mesa",
+    "Secretaría de mesa",
+    "Vocal de mesa",
+    "Representante de la lista ganadora",
+  ];
+  const [names, setNames] = useState<Record<string, string>>({});
+  const [insignia, setInsignia] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   async function download(format: "pdf" | "xlsx") {
@@ -18,7 +33,20 @@ export function ConnectedResults({
       const exports = await import("@/lib/electoral/results");
       const data =
         format === "pdf"
-          ? await exports.exportResultsPdf(results, school, purpose)
+          ? await exports.exportResultsPdf(results, school, purpose, {
+              year,
+              mayors,
+              signatories: roles.map((role) => ({
+                role,
+                name: names[role] ?? "",
+              })),
+              insignia: insignia
+                ? {
+                    bytes: new Uint8Array(await insignia.arrayBuffer()),
+                    type: insignia.type as "image/png" | "image/jpeg",
+                  }
+                : undefined,
+            })
           : await exports.exportResultsExcel(results, purpose);
       const url = URL.createObjectURL(
         new Blob([new Uint8Array(data)], {
@@ -98,6 +126,45 @@ export function ConnectedResults({
             : "Sin lista ganadora"}
         . La proclamación y las firmas corresponden al comité.
       </p>
+      <fieldset>
+        <legend>Datos del acta para revisión y firma</legend>
+        <p>
+          Los nombres y la insignia se usan solo para esta descarga. No se
+          guardan firmas ni se acredita participación de ONPE automáticamente.
+        </p>
+        <label>
+          Insignia institucional (PNG o JPEG, hasta 1 MB)
+          <input
+            type="file"
+            accept="image/png,image/jpeg"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (
+                f &&
+                (f.size > 1024 * 1024 ||
+                  !["image/png", "image/jpeg"].includes(f.type))
+              ) {
+                setError("Selecciona una insignia PNG o JPEG de hasta 1 MB.");
+                setInsignia(null);
+                e.target.value = "";
+              } else {
+                setInsignia(f ?? null);
+                setError("");
+              }
+            }}
+          />
+        </label>
+        {roles.map((role) => (
+          <label key={role}>
+            {role}
+            <input
+              maxLength={120}
+              value={names[role] ?? ""}
+              onChange={(e) => setNames({ ...names, [role]: e.target.value })}
+            />
+          </label>
+        ))}
+      </fieldset>
       <div className="roll-actions">
         <button
           className="button primary"

@@ -66,6 +66,12 @@ export async function exportResultsPdf(
   results: ElectoralResults,
   school: string,
   purpose: "test" | "official" = "test",
+  options: {
+    year?: number;
+    mayors?: Record<string, string>;
+    signatories?: { role: string; name: string }[];
+    insignia?: { bytes: Uint8Array; type: "image/png" | "image/jpeg" };
+  } = {},
 ) {
   if (results.state !== "closed") throw new Error("Elección no cerrada");
   const { PDFDocument, StandardFonts, rgb } = await import("pdf-lib");
@@ -92,6 +98,22 @@ export async function exportResultsPdf(
       y -= size + 10;
     }
   }
+  if (options.insignia) {
+    if (options.insignia.bytes.byteLength > 1024 * 1024)
+      throw new Error("Insignia demasiado grande");
+    const image =
+      options.insignia.type === "image/png"
+        ? await doc.embedPng(options.insignia.bytes)
+        : await doc.embedJpg(options.insignia.bytes);
+    const scaled = image.scaleToFit(64, 64);
+    page.drawImage(image, {
+      x: 40,
+      y: y - scaled.height,
+      width: scaled.width,
+      height: scaled.height,
+    });
+    y -= scaled.height + 20;
+  }
   line(
     purpose === "test"
       ? "ACTA ELECTORAL DE DEMOSTRACION"
@@ -105,6 +127,7 @@ export async function exportResultsPdf(
     12,
   );
   line(school);
+  if (options.year) line(`Año electoral: ${options.year}`);
   line(`Elección: ${results.election_id}`);
   line(
     `Electores: ${results.electors} | Votantes: ${results.voters} | Pendientes: ${results.pending}`,
@@ -125,7 +148,25 @@ export async function exportResultsPdf(
         ? `Mayor votación de lista: ${leaders[0].name}`
         : "Sin lista ganadora",
   );
+  if (leaders.length === 1)
+    line(
+      `Candidato a alcalde de la lista con mayor votación: ${options.mayors?.[leaders[0].id] ?? "No consignado"}`,
+    );
   line("Porcentajes calculados sobre votos emitidos, incluidos blancos.");
+  if (options.signatories?.length) {
+    line("CONFORMIDAD Y FIRMAS", 13);
+    for (const person of options.signatories.slice(0, 10)) {
+      if (y < 125) {
+        page = doc.addPage([595, 842]);
+        y = 790;
+      }
+      y -= 20;
+      line("________________________________________");
+      line(
+        `${person.role.slice(0, 80)}: ${person.name.trim().slice(0, 120) || "Nombre por completar"}`,
+      );
+    }
+  }
   line("No constituye una proclamación ni un acta oficial firmada.");
   return doc.save();
 }

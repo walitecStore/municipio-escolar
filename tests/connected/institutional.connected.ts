@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import ExcelJS from "exceljs";
 import { makeDemoWorkbook } from "../../src/lib/roll/excel";
 const fixture = "http://127.0.0.1:54329";
 const id = "10000000-0000-4000-8000-000000000001";
@@ -132,4 +133,61 @@ test("sin migración 005 no disfraza una prueba como elección institucional", a
     (await (await request.get(`${fixture}/__test/state`)).json()).calls
       .manage_electoral_election ?? 0,
   ).toBe(0);
+});
+
+test("importación por grado agrega dos Excel con DNI sin reemplazar los registros anteriores", async ({
+  page,
+  request,
+}) => {
+  await staffLogin(page);
+  await request.post(`${fixture}/__test/scenario`, {
+    data: { purpose: "official", state: "draft", clearRoll: true },
+  });
+  await page.goto(`/sistema/${id}/padron`);
+  await page.getByLabel("Tipo de importación").selectOption("append");
+  for (let grade = 1; grade <= 2; grade++) {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Ficticio");
+    sheet.addRow(["dni", "nombre", "grado", "seccion"]);
+    sheet.addRow([
+      String(grade).padStart(8, "0"),
+      `Estudiante ficticio ${grade}`,
+      grade,
+      "A",
+    ]);
+    await page.getByLabel("Excel para PostgreSQL").setInputFiles({
+      name: `grado-ficticio-${grade}.xlsx`,
+      mimeType:
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      buffer: Buffer.from(await workbook.xlsx.writeBuffer()),
+    });
+    await page
+      .getByLabel(
+        "Confirmo que se agregarán registros sin reemplazar los existentes.",
+      )
+      .check();
+    await page
+      .getByRole("button", { name: "Agregar grado al padrón mediante RPC" })
+      .click();
+    await expect(page.getByRole("status")).toContainText(
+      "Agregados 1 registros",
+    );
+    await expect(
+      page.getByRole("table", { name: "Padrón conectado" }),
+    ).toContainText(`Estudiante ficticio ${grade}`);
+    expect(
+      (await (await request.get(`${fixture}/__test/state`)).json()).calls
+        .append_electoral_dni_roll,
+    ).toBe(grade);
+  }
+  await page.reload();
+  await expect(
+    page.getByRole("table", { name: "Padrón conectado" }),
+  ).toContainText("Estudiante ficticio 1");
+  await expect(
+    page.getByRole("table", { name: "Padrón conectado" }),
+  ).toContainText("Estudiante ficticio 2");
+  const state = await (await request.get(`${fixture}/__test/state`)).json();
+  expect(state.calls.append_electoral_dni_roll).toBe(2);
+  expect(state.calls.replace_electoral_roll ?? 0).toBe(0);
 });

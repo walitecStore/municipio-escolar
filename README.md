@@ -160,3 +160,7 @@ Cambio de contraseña del personal en `/sistema/perfil` y recuperación en
 `/sistema/restablecer`: [configuración exacta de Auth y pruebas](docs/RECUPERACION-CONTRASENA.md).
 
 Gestión conectada y preparación del borrador institucional: [guía de gestión institucional](docs/GESTION-INSTITUCIONAL.md). La migración adicional 005 requiere revisión y ejecución manual; no abre la votación.
+
+### Votación presencial mediante DNI
+
+La modalidad supervisada para varias computadoras se prepara con la migración 006, conservando las elecciones existentes y sin abrir la votación. Importa una hoja Excel con `dni,nombre,grado,seccion` (DNI como texto de ocho dígitos). Consulta [la guía de mesas, privacidad, activación manual y acta PDF](docs/VOTACION-PRESENCIAL-DNI.md). No ejecutes esta migración en producción sin revisión y ensayo previo. El nuevo indicador `ELECTORAL_SUPERVISED_DNI_ENABLED` permanece en `false` en `.env.example`.

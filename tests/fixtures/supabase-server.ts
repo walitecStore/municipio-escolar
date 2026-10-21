@@ -29,6 +29,14 @@ let phase = "draft",
 let calls: Record<string, number> = {};
 let credential: { hash: string; version: string; delivered: boolean } | null =
   null;
+let supervisedDni = false;
+let station: {
+  id: string;
+  hash: string;
+  label: string;
+  active: boolean;
+} | null = null;
+let turn: { id: string; state: string } | null = null;
 let participation = false;
 let ballots: (string | null)[] = [];
 let media = new Map<string, Buffer>();
@@ -146,6 +154,7 @@ function election() {
     state: phase,
     purpose,
     security_approved: approved,
+    supervised_dni: supervisedDni,
   };
 }
 const initialStudents = Array.from({ length: 230 }, (_, i) => ({
@@ -201,6 +210,9 @@ const server = http.createServer(async (req, res) => {
   try {
     if (url.pathname === "/health") return send({ ready: true });
     if (url.pathname === "/__test/reset") {
+      supervisedDni = false;
+      station = null;
+      turn = null;
       phase = "draft";
       purpose = "test";
       approved = false;
@@ -231,6 +243,7 @@ const server = http.createServer(async (req, res) => {
         recoveryProvider = data.recoveryProvider;
       if (typeof data.institutionalFunctionMissing === "boolean")
         institutionalFunctionMissing = data.institutionalFunctionMissing;
+      if (data.clearRoll === true) students.splice(0);
       if (data.state) phase = data.state;
       if (data.purpose) purpose = data.purpose;
       if (typeof data.approved === "boolean") approved = data.approved;
@@ -363,6 +376,48 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(204);
       return res.end();
     }
+    if (url.pathname === "/rest/v1/rpc/station_electoral_operation") {
+      calls.station_electoral_operation =
+        (calls.station_electoral_operation ?? 0) + 1;
+      const a = JSON.parse((await body(req)).toString());
+      if (
+        !station?.active ||
+        station.hash !==
+          createHash("sha256").update(String(a.p_token)).digest("hex") ||
+        phase !== "open"
+      )
+        return send({ message: "Denied" }, 403);
+      if (a.p_operation === "request") {
+        if (a.p_dni !== "00000001" || participation)
+          return send({ purpose, state: "unavailable" });
+        turn = { id: randomUUID(), state: "pending" };
+      }
+      if (a.p_operation === "cast") {
+        if (turn?.state !== "authorized" || participation)
+          return send({ message: "Denied" }, 403);
+        participation = true;
+        ballots.push(a.p_choice);
+        turn.state = "consumed";
+      }
+      if (a.p_operation === "finish" && turn?.state === "consumed") turn = null;
+      return send({
+        purpose,
+        state: turn?.state ?? "ready",
+        ...(turn?.state === "authorized"
+          ? {
+              name: "Estudiante ficticio 001",
+              lists: [
+                {
+                  id: listId,
+                  number: 1,
+                  name: lists[0].name,
+                  mayor: "Candidato ficticio",
+                },
+              ],
+            }
+          : {}),
+      });
+    }
     if (!c) return send({ message: "Unauthorized" }, 401);
     if (url.pathname.endsWith("/challenge"))
       return send({
@@ -416,6 +471,74 @@ const server = http.createServer(async (req, res) => {
         return send(null);
       }
       if (!staff(c)) return send({ code: "P0001", message: "Denied" }, 403);
+      if (name === "append_electoral_dni_roll") {
+        if (
+          phase !== "draft" ||
+          students.length + args.p_rows.length > 230 ||
+          args.p_rows.some((r: { codigo: string }) =>
+            students.some((s) => s.code === r.codigo),
+          )
+        )
+          return send({ message: "Rejected" }, 400);
+        for (const r of args.p_rows)
+          students.push({
+            id: randomUUID(),
+            code: r.codigo,
+            full_name: r.nombre,
+            grade: r.grado,
+            section: r.seccion,
+            auth_user_id: null,
+          });
+        return send(args.p_rows.length);
+      }
+      if (name === "configure_supervised_dni") {
+        supervisedDni = true;
+        return send(null);
+      }
+      if (name === "create_voting_station") {
+        station = {
+          id: randomUUID(),
+          hash: args.p_hash,
+          label: args.p_label,
+          active: true,
+        };
+        return send(station.id);
+      }
+      if (name === "get_supervised_control")
+        return send({
+          stations: station
+            ? [
+                {
+                  id: station.id,
+                  label: station.label,
+                  active: station.active,
+                  expires_at: new Date(Date.now() + 3600000).toISOString(),
+                },
+              ]
+            : [],
+          turns:
+            turn && station && ["pending", "authorized"].includes(turn.state)
+              ? [
+                  {
+                    id: turn.id,
+                    station_id: station.id,
+                    name: "Estudiante ficticio 001",
+                    dni: "00000001",
+                    grade: 1,
+                    section: "A",
+                    state: turn.state,
+                  },
+                ]
+              : [],
+        });
+      if (name === "manage_supervised_turn") {
+        if (args.p_revoke && station) {
+          station.active = false;
+          turn = null;
+        } else if (turn)
+          turn.state = args.p_approve ? "authorized" : "cancelled";
+        return send(null);
+      }
       if (name === "manage_electoral_list") {
         if (phase !== "draft") return send({ message: "Draft only" }, 400);
         const list = args.p_id ? lists.find((l) => l.id === args.p_id) : null;

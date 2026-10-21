@@ -29,6 +29,7 @@ export default defineConfig({
         ELECTORAL_DEPLOYMENT_STAGE: "local-test",
         VERCEL: "0", // Loopback fixture, even when the runner itself is hosted.
         ELECTORAL_RPC_VOTING_ENABLED: "true",
+        ELECTORAL_SUPERVISED_DNI_ENABLED: "true",
         ELECTORAL_OFFICIAL_VOTING_ENABLED: "false",
       },
     },

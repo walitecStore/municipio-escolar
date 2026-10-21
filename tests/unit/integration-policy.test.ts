@@ -21,6 +21,7 @@ const election: ConnectedElection = {
   state: "open",
   purpose: "test",
   security_approved: false,
+  supervised_dni: false,
 };
 test("integración falla cerrada sin configuración y rechaza claves secretas o URL insegura", () => {
   assert.equal(parseIntegrationConfig({}), null);

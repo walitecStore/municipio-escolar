@@ -16,6 +16,7 @@ export default async function Layout({
         ["/padron", "Padrón"],
         ["/listas", "Listas y candidatos"],
         ["/credenciales", "Credenciales"],
+        ["/presencial", "Mesas · DNI"],
         ["/media", "Fotografías"],
         ["/resultados", "Resultados"],
       ]
