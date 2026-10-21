@@ -7,12 +7,14 @@ export function ConnectedResults({
   purpose,
   year,
   mayors = {},
+  mode = "all",
 }: {
   results: ElectoralResults;
   school: string;
   purpose: "test" | "official";
   year?: number;
   mayors?: Record<string, string>;
+  mode?: "all" | "charts" | "documents";
 }) {
   const roles = [
     "Director/a",
@@ -92,28 +94,31 @@ export function ConnectedResults({
           </div>
         </div>
       </div>
-      {results.lists.map((l) => (
-        <div className="result-row" key={l.id}>
-          <div className="result-label">
-            <h2>
-              {l.number}. {l.name}
-            </h2>
-            <strong>
-              {l.votes} votos · {l.percentage.toFixed(2)} %
-            </strong>
+      {mode !== "documents" &&
+        results.lists.map((l) => (
+          <div className="result-row" key={l.id}>
+            <div className="result-label">
+              <h2>
+                {l.number}. {l.name}
+              </h2>
+              <strong>
+                {l.votes} votos · {l.percentage.toFixed(2)} %
+              </strong>
+            </div>
+            <div
+              className="result-track"
+              role="meter"
+              aria-label={l.name}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={l.percentage}
+            >
+              <div
+                style={{ width: `${l.percentage}%`, background: "#148065" }}
+              />
+            </div>
           </div>
-          <div
-            className="result-track"
-            role="meter"
-            aria-label={l.name}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={l.percentage}
-          >
-            <div style={{ width: `${l.percentage}%`, background: "#148065" }} />
-          </div>
-        </div>
-      ))}
+        ))}
       <p>
         Blancos: {results.blank} ({results.blank_percentage.toFixed(2)} %).
         Porcentajes sobre votos emitidos, incluidos blancos.
@@ -126,62 +131,71 @@ export function ConnectedResults({
             : "Sin lista ganadora"}
         . La proclamación y las firmas corresponden al comité.
       </p>
-      <fieldset>
-        <legend>Datos del acta para revisión y firma</legend>
-        <p>
-          Los nombres y la insignia se usan solo para esta descarga. No se
-          guardan firmas ni se acredita participación de ONPE automáticamente.
-        </p>
-        <label>
-          Insignia institucional (PNG o JPEG, hasta 1 MB)
-          <input
-            type="file"
-            accept="image/png,image/jpeg"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (
-                f &&
-                (f.size > 1024 * 1024 ||
-                  !["image/png", "image/jpeg"].includes(f.type))
-              ) {
-                setError("Selecciona una insignia PNG o JPEG de hasta 1 MB.");
-                setInsignia(null);
-                e.target.value = "";
-              } else {
-                setInsignia(f ?? null);
-                setError("");
-              }
-            }}
-          />
-        </label>
-        {roles.map((role) => (
-          <label key={role}>
-            {role}
-            <input
-              maxLength={120}
-              value={names[role] ?? ""}
-              onChange={(e) => setNames({ ...names, [role]: e.target.value })}
-            />
-          </label>
-        ))}
-      </fieldset>
-      <div className="roll-actions">
-        <button
-          className="button primary"
-          disabled={busy}
-          onClick={() => download("pdf")}
-        >
-          Descargar acta del recuento
-        </button>
-        <button
-          className="button secondary"
-          disabled={busy}
-          onClick={() => download("xlsx")}
-        >
-          Exportar recuento Excel
-        </button>
-      </div>
-      {error && <p role="alert">{error}</p>}
+      {mode !== "charts" && (
+        <>
+          <fieldset>
+            <legend>Datos del acta para revisión y firma</legend>
+            <p>
+              Los nombres y la insignia se usan solo para esta descarga. No se
+              guardan firmas ni se acredita participación de ONPE
+              automáticamente.
+            </p>
+            <label>
+              Insignia institucional (PNG o JPEG, hasta 1 MB)
+              <input
+                type="file"
+                accept="image/png,image/jpeg"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (
+                    f &&
+                    (f.size > 1024 * 1024 ||
+                      !["image/png", "image/jpeg"].includes(f.type))
+                  ) {
+                    setError(
+                      "Selecciona una insignia PNG o JPEG de hasta 1 MB.",
+                    );
+                    setInsignia(null);
+                    e.target.value = "";
+                  } else {
+                    setInsignia(f ?? null);
+                    setError("");
+                  }
+                }}
+              />
+            </label>
+            {roles.map((role) => (
+              <label key={role}>
+                {role}
+                <input
+                  maxLength={120}
+                  value={names[role] ?? ""}
+                  onChange={(e) =>
+                    setNames({ ...names, [role]: e.target.value })
+                  }
+                />
+              </label>
+            ))}
+          </fieldset>
+          <div className="roll-actions">
+            <button
+              className="button primary"
+              disabled={busy}
+              onClick={() => download("pdf")}
+            >
+              Descargar acta del recuento
+            </button>
+            <button
+              className="button secondary"
+              disabled={busy}
+              onClick={() => download("xlsx")}
+            >
+              Exportar recuento Excel
+            </button>
+          </div>
+          {error && <p role="alert">{error}</p>}
+        </>
+      )}
     </>
   );
 }

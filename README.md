@@ -170,3 +170,7 @@ La modalidad supervisada para varias computadoras se prepara con la migración 0
 La interfaz de producción utiliza datos institucionales y oculta las demostraciones. Los encargados tienen acceso a un colegio mediante asignaciones verificadas por PostgreSQL. El operador incorpora colegios desde **Mi institución y equipo**; cada encargado configura su perfil y prepara elecciones con su propio total de electores. La portada incluye instalación PWA para celular/computadora con conexión a internet.
 
 Revisa [configuración, migraciones 007–008, incorporación de colegios y alcance académico](docs/PLATAFORMA-MULTIINSTITUCION.md). Las migraciones no se ejecutan automáticamente ni habilitan elecciones oficiales. Conserva los datos y las migraciones 001–006 ya aplicadas. Agrega `npm run test:operational` a la validación, ejecutándolo después de `test:connected`.
+
+### Interfaz y navegación
+
+Diseño adaptable a PC, tableta y celular, tarjetas por tarea, controles para volver y una sección propia de actas. Consulta [la guía y las capturas de la interfaz](docs/INTERFAZ-RESPONSIVE.md). Esta actualización visual no requiere nuevas migraciones ni abre la votación.

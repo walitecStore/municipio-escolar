@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { InstallApp } from "@/components/install-app";
 import {
   ArrowRight,
@@ -48,9 +49,14 @@ export default function Home() {
             </Link>
           </div>
         </div>
-        <div className="hero-art institutional-art" aria-hidden="true">
-          <ShieldCheck size={140} strokeWidth={1.2} />
-          <strong>Participación con confianza</strong>
+        <div className="hero-art institutional-art">
+          <Image
+            src="/illustrations/school-election.svg"
+            alt="Ilustración de estudiantes participando en su municipio escolar"
+            width={700}
+            height={450}
+            priority
+          />
         </div>
       </section>
       <section

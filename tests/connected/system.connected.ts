@@ -148,7 +148,7 @@ test("entrega individual, voto con RPC y recuento real inaccesible hasta cierre"
   });
   await page.reload();
   await expect(
-    page.getByRole("heading", { name: "Resultados de PostgreSQL" }),
+    page.getByRole("heading", { name: "Resultados electorales" }),
   ).toBeVisible();
   await expect(page.locator("main")).toContainText("Blancos: 1");
   stats = await (await request.get(`${fixture}/__test/state`)).json();

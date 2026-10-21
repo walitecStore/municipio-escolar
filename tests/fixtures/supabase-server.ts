@@ -271,6 +271,8 @@ const server = http.createServer(async (req, res) => {
       if (typeof data.institutionalFunctionMissing === "boolean")
         institutionalFunctionMissing = data.institutionalFunctionMissing;
       if (data.clearRoll === true) students.splice(0);
+      if (typeof data.supervisedDni === "boolean")
+        supervisedDni = data.supervisedDni;
       if (data.state) phase = data.state;
       if (data.purpose) purpose = data.purpose;
       if (typeof data.approved === "boolean") approved = data.approved;
