@@ -31,6 +31,20 @@ export async function institutionAction(
         p_name: name(),
         p_expected: expected(),
       });
+    else if (op === "existing")
+      response = await client.rpc("assign_existing_institution_staff", {
+        p_institution: iid(),
+        p_email: z
+          .email()
+          .max(254)
+          .parse(
+            String(form.get("email") ?? "")
+              .trim()
+              .toLowerCase(),
+          ),
+        p_role: z.enum(["administrator", "committee"]).parse(form.get("role")),
+        p_active: form.get("active") === "yes",
+      });
     else if (op === "staff")
       response = await client.rpc("assign_institution_staff", {
         p_institution: iid(),

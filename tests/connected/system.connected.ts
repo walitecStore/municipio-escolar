@@ -223,14 +223,14 @@ test("formularios conectan importación, corrección, listas y candidatos a RPC 
   );
   await page.goto(`/sistema/${id}/listas`);
   await page
-    .getByLabel("Nombre de lista", { exact: true })
+    .getByLabel("Nombre de la lista o partido escolar", { exact: true })
     .fill("Lista ficticia HTTP");
   await page.getByLabel("Número electoral", { exact: true }).fill("2");
   await page
     .getByLabel("Propuestas (una por línea)")
     .fill("Propuesta ficticia HTTP");
   await page
-    .getByRole("button", { name: "Guardar lista en PostgreSQL" })
+    .getByRole("button", { name: "Registrar lista" })
     .click();
   await expect(
     page.getByRole("heading", { name: "Lista 2 · Lista ficticia HTTP" }),
@@ -239,11 +239,11 @@ test("formularios conectan importación, corrección, listas y candidatos a RPC 
     .getByLabel("Lista de la candidatura", { exact: true })
     .selectOption({ label: "Lista ficticia HTTP" });
   await page
-    .getByLabel("Nombre", { exact: true })
+    .getByLabel("Nombres y apellidos del candidato", { exact: true })
     .fill("Alcalde ficticio HTTP");
-  await page.getByLabel("Cargo", { exact: true }).fill("Alcaldía escolar");
+  await page.getByLabel("Nombre del cargo", { exact: true }).fill("Alcaldía escolar");
   await page
-    .getByRole("button", { name: "Guardar candidatura en PostgreSQL" })
+    .getByRole("button", { name: "Registrar candidato" })
     .click();
   await expect(page.locator("main")).toContainText(
     "Alcalde ficticio HTTP · Alcaldía escolar",

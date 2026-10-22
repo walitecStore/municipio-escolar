@@ -1766,3 +1766,117 @@ test("actualización 006 → 007 → 008 conserva los 15 electores, sus identifi
     15,
   );
 });
+
+test("equipo: invitaciones privadas, MFA, aislamiento, asignación por correo y límites compartidos", async () => {
+  const f = await schoolFixture();
+  await pool.query(
+    await readFile(
+      "supabase/migrations/202610220009_staff_invitations.sql",
+      "utf8",
+    ),
+  );
+  await pool.query(
+    "alter table auth.users add column email text,add column raw_user_meta_data jsonb default '{}'::jsonb,add column email_confirmed_at timestamptz",
+  );
+  await pool.query(
+    "update auth.users set email=$2,raw_user_meta_data=$3 where id=$1",
+    [f.users[2], "comite@example.test", { full_name: "Comité ficticio" }],
+  );
+  const authorize = (c: PoolClient, iid = f.institutions[0]) =>
+    c.query(
+      "select public.authorize_staff_invitation($1,'nuevo@example.test')",
+      [iid],
+    );
+  await session(f.users[0], (c) => authorize(c));
+  await assert.rejects(session(f.users[1], (c) => authorize(c)));
+  await assert.rejects(
+    session(f.users[0], async (c) => {
+      await c.query(
+        `select set_config('request.jwt.claims','{"aal":"aal1"}',true)`,
+      );
+      await authorize(c);
+    }),
+  );
+  await assert.rejects(session(f.users[0], (c) => authorize(c), "anon"));
+  await assert.rejects(
+    session(f.users[0], (c) => authorize(c), "service_role"),
+  );
+  await session(f.users[0], (c) =>
+    c.query(
+      "select public.assign_existing_institution_staff($1,'COMITE@example.test','committee',true)",
+      [f.institutions[0]],
+    ),
+  );
+  const team = (
+    await session(f.users[0], (c) =>
+      c.query("select public.get_institution_team($1) value", [
+        f.institutions[0],
+      ]),
+    )
+  ).rows[0].value;
+  assert.ok(
+    team.some(
+      (m: { email: string; name: string }) =>
+        m.email === "comite@example.test" && m.name === "Comité ficticio",
+    ),
+  );
+  await assert.rejects(session(f.users[2], (c) => authorize(c)));
+  await assert.rejects(
+    session(f.users[2], (c) =>
+      c.query("select public.get_institution_team($1)", [f.institutions[0]]),
+    ),
+  );
+  await assert.rejects(
+    session(f.users[1], (c) =>
+      c.query("select public.get_institution_team($1)", [f.institutions[0]]),
+    ),
+  );
+  await assert.rejects(
+    session(f.users[1], (c) =>
+      c.query(
+        "select public.assign_existing_institution_staff($1,'comite@example.test','committee',true)",
+        [f.institutions[1]],
+      ),
+    ),
+  );
+  await assert.rejects(
+    session(f.users[0], (c) =>
+      c.query(
+        "select public.authorize_staff_invitation($1,'comite@example.test')",
+        [f.institutions[0]],
+      ),
+    ),
+  );
+  await pool.query(
+    "insert into electoral_private.institution_audit(institution_id,actor_id,action) select $1,$2,'staff.invitation_requested' from generate_series(1,18)",
+    [f.institutions[0], f.users[0]],
+  );
+  const attempts = await Promise.allSettled([
+    session(f.users[0], (c) => authorize(c)),
+    session(f.users[0], (c) => authorize(c)),
+  ]);
+  assert.equal(attempts.filter((r) => r.status === "fulfilled").length, 1);
+  await session(f.users[0], (c) =>
+    c.query(
+      "select public.assign_existing_institution_staff($1,'comite@example.test','committee',false)",
+      [f.institutions[0]],
+    ),
+  );
+  assert.equal(
+    (
+      await session(f.users[2], (c) =>
+        c.query("select public.get_electoral_session() value"),
+      )
+    ).rows[0].value.role,
+    "unassigned",
+  );
+  assert.equal(
+    (
+      await pool.query(
+        "select state,security_approved from electoral_private.elections where id=$1",
+        [f.elections[0]],
+      )
+    ).rows[0].state,
+    "draft",
+  );
+});

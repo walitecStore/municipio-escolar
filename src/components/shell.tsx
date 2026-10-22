@@ -30,6 +30,7 @@ const demoLinks = [
   ["/resultados", "Resultados (demo)", ChartNoAxesCombined],
 ] as const;
 const pageNames: Record<string, string> = {
+  invitacion: "Activar acceso personal",
   perfil: "Perfil y seguridad",
   instituciones: "Mi institución y equipo",
   preparacion: "Preparación institucional",

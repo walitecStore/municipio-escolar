@@ -25,6 +25,7 @@ export default defineConfig({
         SUPABASE_INTEGRATION_ENABLED: "true",
         SUPABASE_URL: "http://127.0.0.1:54329",
         SUPABASE_PUBLISHABLE_KEY: "sb_publishable_local_test_fixture",
+        SUPABASE_AUTH_ADMIN_KEY: "sb_secret_local_invitation_fixture",
         APP_ORIGIN: "http://127.0.0.1:3104",
         ELECTORAL_DEPLOYMENT_STAGE: "local-test",
         ELECTORAL_DEMO_ENABLED: "false",

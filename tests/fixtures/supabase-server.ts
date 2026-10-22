@@ -22,6 +22,19 @@ type Claims = {
   exp: number;
   amr?: { method: string; timestamp: number }[];
 };
+const inviteTokens = new Map<string, Claims>();
+const invitedStaff = new Map<
+  string,
+  {
+    institution: string;
+    name: string;
+    email: string;
+    role: string;
+    active: boolean;
+    accepted: boolean;
+  }
+>();
+let generatedInvites = 0;
 let phase = "draft",
   purpose = "test",
   approved = false,
@@ -156,6 +169,8 @@ let institutionProfiles = [
 let electionInstitution = baseInstitution;
 let expectedStudents = 230;
 function role(c: Claims) {
+  const member = invitedStaff.get(c.sub);
+  if (member) return member.active ? member.role : "unassigned";
   return profiles[c.email]?.role ?? "unassigned";
 }
 function staff(c: Claims) {
@@ -227,6 +242,11 @@ const server = http.createServer(async (req, res) => {
   try {
     if (url.pathname === "/health") return send({ ready: true });
     if (url.pathname === "/__test/reset") {
+      for (const email of Object.keys(profiles))
+        if (email.endsWith("@invite.example.test")) delete profiles[email];
+      inviteTokens.clear();
+      invitedStaff.clear();
+      generatedInvites = 0;
       supervisedDni = false;
       station = null;
       turn = null;
@@ -283,6 +303,7 @@ const server = http.createServer(async (req, res) => {
       return send({
         calls,
         passwordUpdates,
+        generatedInvites,
         recoverRequests,
         recoveryRedirectValid,
         userReads,
@@ -343,8 +364,60 @@ const server = http.createServer(async (req, res) => {
       challenge = data.code_challenge ?? "";
       return send({});
     }
+    if (url.pathname === "/auth/v1/admin/generate_link") {
+      if (req.headers.apikey !== "sb_secret_local_invitation_fixture")
+        return send({ message: "Denied" }, 403);
+      const data = JSON.parse((await body(req)).toString());
+      if (
+        data.type !== "invite" ||
+        (profiles[data.email] &&
+          ![...invitedStaff.values()].some(
+            (m) => m.email === data.email && !m.accepted && m.active,
+          ))
+      )
+        return send({ message: "Already registered" }, 400);
+      const uid = profiles[data.email]?.id ?? randomUUID();
+      for (const [proof, claim] of inviteTokens)
+        if (claim.sub === uid) inviteTokens.delete(proof);
+      profiles[data.email] = { id: uid, role: "unassigned" };
+      const proof = randomBytes(32).toString("hex");
+      const claims: Claims = {
+        sub: uid,
+        email: data.email,
+        role: "authenticated",
+        aal: "aal1",
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      };
+      inviteTokens.set(proof, claims);
+      invitedStaff.set(uid, {
+        institution: "",
+        name: data.data?.full_name ?? "Personal ficticio",
+        email: data.email,
+        role: "committee",
+        active: false,
+        accepted: false,
+      });
+      generatedInvites++;
+      return send({
+        ...user(claims),
+        action_link: "http://127.0.0.1/unused",
+        hashed_token: proof,
+        verification_type: "invite",
+        email_otp: "123456",
+        redirect_to: "http://127.0.0.1",
+      });
+    }
     if (url.pathname === "/auth/v1/verify") {
       const data = JSON.parse((await body(req)).toString());
+      if (data.type === "invite") {
+        const invitation = inviteTokens.get(data.token_hash);
+        if (!invitation)
+          return send({ message: "Expired", error_code: "otp_expired" }, 403);
+        inviteTokens.delete(data.token_hash);
+        const member = invitedStaff.get(invitation.sub);
+        if (member) member.accepted = true;
+        return send(authTokens(invitation));
+      }
       const recovery = recoveryTokens.get(data.token_hash);
       if (!recovery || data.type !== "recovery")
         return send({ message: "Expired", error_code: "otp_expired" }, 403);
@@ -520,6 +593,49 @@ const server = http.createServer(async (req, res) => {
             (i) => c.email === "admin@example.test" || i.owner === c.sub,
           ),
         });
+      if (
+        [
+          "get_institution_team",
+          "authorize_staff_invitation",
+          "assign_institution_staff",
+          "assign_existing_institution_staff",
+        ].includes(name)
+      ) {
+        const institution = institutionProfiles.find(
+          (i) =>
+            i.id === args.p_institution &&
+            (c.email === "admin@example.test" || i.owner === c.sub),
+        );
+        if (!institution || role(c) !== "administrator")
+          return send({ message: "Denied" }, 403);
+        if (name === "get_institution_team")
+          return send(
+            [...invitedStaff.entries()]
+              .filter(([, v]) => v.institution === institution.id)
+              .map(([id, v]) => ({ id, ...v })),
+          );
+        if (name === "authorize_staff_invitation")
+          return profiles[args.p_email] && !args.p_existing
+            ? send({ message: "Existing" }, 400)
+            : send(null);
+        const target =
+          name === "assign_institution_staff"
+            ? args.p_user
+            : profiles[args.p_email]?.id;
+        const member = invitedStaff.get(target);
+        if (
+          !member ||
+          (member.institution && member.institution !== institution.id)
+        )
+          return send({ message: "Denied" }, 403);
+        member.institution = institution.id;
+        member.role = args.p_role;
+        member.active = args.p_active;
+        profiles[member.email].role = member.active
+          ? member.role
+          : "unassigned";
+        return send(null);
+      }
       if (name === "provision_institution") {
         if (c.email !== "admin@example.test")
           return send({ message: "Denied" }, 403);
