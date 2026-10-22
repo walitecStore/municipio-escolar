@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard } from "lucide-react";
@@ -13,9 +14,19 @@ export function ElectionNavigation({
 }) {
   const path = usePathname();
   const base = `/sistema/${id}`;
+  const nav = useRef<HTMLElement>(null);
+  useEffect(() => {
+    nav.current
+      ?.querySelector('[aria-current="page"]')
+      ?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [path]);
   if (path === base) return null;
   return (
-    <nav className="election-tabs" aria-label="Navegación de la elección">
+    <nav
+      ref={nav}
+      className="election-tabs"
+      aria-label="Navegación de la elección"
+    >
       <Link href={base} className="election-tab">
         <LayoutDashboard size={17} aria-hidden="true" />
         <span>Resumen</span>

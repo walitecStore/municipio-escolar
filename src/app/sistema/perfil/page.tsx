@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { Heading } from "@/components/ui";
+import { WorkspaceHeading } from "@/components/connected/workspace-ui";
 import { PasswordForm } from "@/components/connected/password-forms";
 import { verifiedSession } from "@/lib/connected/session";
 import { isStaff } from "@/lib/connected/policy";
@@ -14,12 +14,15 @@ export default async function Page() {
     throw new Error("Acceso restringido al personal autorizado.");
   return (
     <>
-      <Heading
-        eyebrow="PERFIL DEL PERSONAL"
+      <WorkspaceHeading
+        icon="security"
+        eyebrow="TU PERFIL Y SEGURIDAD"
         title="Cambiar contraseña"
-        description="Confirma tu identidad con la contraseña actual y un código MFA reciente. Al guardar, deberás iniciar sesión nuevamente."
-      />
-      <section className="panel">
+      >
+        Confirma tu contraseña actual y el código de tu autenticador. Después de
+        guardar, inicia sesión con tu nueva contraseña.
+      </WorkspaceHeading>
+      <section className="panel focused-form">
         <PasswordForm />
       </section>
     </>

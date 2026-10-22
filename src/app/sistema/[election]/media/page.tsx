@@ -1,3 +1,7 @@
+import {
+  WorkspaceHeading,
+  WorkspaceNote,
+} from "@/components/connected/workspace-ui";
 import { protectedElection } from "@/lib/connected/session";
 import { ConnectedMediaUpload } from "@/components/connected/forms";
 export default async function Page({
@@ -8,12 +12,23 @@ export default async function Page({
   const { election } = await protectedElection((await params).election, true);
   return (
     <section className="panel">
-      <h1>Fotografías y símbolos privados</h1>
+      <WorkspaceHeading
+        icon="images"
+        eyebrow="IMÁGENES DE TU COMUNIDAD"
+        title="Fotografías y símbolos"
+      >
+        Guarda imágenes autorizadas de tu institución desde el celular o la
+        computadora.
+      </WorkspaceHeading>
       <p>
-        El archivo se procesa en el servidor, se convierte a WebP sin EXIF/GPS y
-        se sube con tu sesión verificada; no utiliza service_role ni enlaces
-        públicos.
+        Las imágenes se guardan de forma privada y se eliminan sus datos de
+        ubicación. Puedes cargar símbolos y fotos directamente al registrar
+        listas y candidatos.
       </p>
+      <WorkspaceNote title="Para vincular una imagen a una candidatura">
+        Usa los campos de imagen en Listas y candidatos: la fotografía o el
+        símbolo se asignan al guardar el registro.
+      </WorkspaceNote>
       <ConnectedMediaUpload election={election} />
     </section>
   );

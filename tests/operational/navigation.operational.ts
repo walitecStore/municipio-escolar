@@ -15,7 +15,7 @@ async function login(page: Page) {
   await page.getByLabel("Código del autenticador").fill("123456");
   await page.getByRole("button", { name: "Verificar segundo factor" }).click();
   await expect(
-    page.getByRole("heading", { name: "Panel electoral conectado" }),
+    page.getByRole("heading", { name: "Panel electoral" }),
   ).toBeVisible();
 }
 test.beforeEach(async ({ request }) => {
@@ -32,7 +32,7 @@ test("tarjetas únicas, navegación atrás estable y distribución de PC/tableta
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(`/sistema/${id}`);
   const cards = page.locator("main .module-card");
-  expect(await cards.count()).toBe(7);
+  await expect(cards).toHaveCount(7);
   const hrefs = await cards.evaluateAll((nodes) =>
     nodes.map((n) => n.getAttribute("href")),
   );
@@ -69,7 +69,7 @@ test("tarjetas únicas, navegación atrás estable y distribución de PC/tableta
   });
   await page.getByRole("link", { name: /Padrón electoral Importa/ }).click();
   await expect(
-    page.getByRole("heading", { name: "Padrón conectado · 2026" }),
+    page.getByRole("heading", { name: "Padrón electoral · 2026" }),
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Volver a la elección" }),
@@ -82,7 +82,9 @@ test("tarjetas únicas, navegación atrás estable y distribución de PC/tableta
   await page.reload();
   await expect(page.locator("main .module-card")).toHaveCount(8);
   await page.getByRole("link", { name: /Mesas · DNI Prepara/ }).click();
-  await expect(page.getByRole("heading", { name: "Votación presencial con DNI" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Votación presencial con DNI" }),
+  ).toBeVisible();
   await page.goto(`/sistema/${id}/configuracion`);
   const checkbox = page.getByRole("checkbox");
   expect((await checkbox.boundingBox())?.width).toBeLessThanOrEqual(25);
@@ -109,7 +111,7 @@ test("tarjetas únicas, navegación atrás estable y distribución de PC/tableta
   ).toBeVisible();
   await page.getByRole("link", { name: "Volver al panel" }).click();
   await expect(
-    page.getByRole("heading", { name: "Panel electoral conectado" }),
+    page.getByRole("heading", { name: "Panel electoral" }),
   ).toBeVisible();
 });
 test("actas protegidas antes del cierre; PDF separado de resultados y acceso de electores denegado", async ({
@@ -179,11 +181,10 @@ test("movimiento reducido y ayuda accesible desde la navegación móvil", async 
   await login(page);
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(`/sistema/${id}`);
-  expect(
-    await page
-      .locator(".welcome-illustration")
-      .evaluate((n) => getComputedStyle(n).animationName),
-  ).toBe("none");
+  await expect(page.locator(".welcome-illustration")).toHaveCSS(
+    "animation-name",
+    "none",
+  );
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("link", { name: "Ayuda", exact: true }).click();
   await expect(

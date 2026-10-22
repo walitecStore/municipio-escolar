@@ -1,3 +1,4 @@
+import { WorkspaceHeading } from "@/components/connected/workspace-ui";
 import { redirect } from "next/navigation";
 import { verifiedSession } from "@/lib/connected/session";
 import { isStaff } from "@/lib/connected/policy";
@@ -56,7 +57,14 @@ export default async function Page() {
   }
   return (
     <section className="panel">
-      <h1>Mi institución y equipo</h1>
+      <WorkspaceHeading
+        icon="team"
+        eyebrow="PERSONAS QUE HACEN POSIBLE LA ELECCIÓN"
+        title="Mi institución y equipo"
+      >
+        Completa los datos del colegio e incorpora a las personas que te
+        ayudarán a organizar el proceso.
+      </WorkspaceHeading>
       <p>
         Cada institución administra únicamente sus elecciones y su padrón. Los
         cambios del perfil se aplican a nuevas elecciones; las actas y

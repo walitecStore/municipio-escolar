@@ -1,3 +1,8 @@
+import {
+  WorkspaceHeading,
+  WorkspaceMetric,
+  WorkspaceNote,
+} from "@/components/connected/workspace-ui";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -22,47 +27,97 @@ export default async function Page() {
   const config = integrationConfig();
   return (
     <section className="panel">
-      <h1>Preparación institucional</h1>
+      <WorkspaceHeading
+        icon="preparation"
+        eyebrow="ANTES DE LA JORNADA ELECTORAL"
+        title="Preparación institucional"
+      >
+        Consulta el estado real de la aplicación y organiza los pasos de tu
+        elección.
+      </WorkspaceHeading>
       <p>
         Revisa la preparación de las instituciones y elecciones autorizadas para
         tu cuenta. Cada elección conserva su padrón y su total de electores.
       </p>
-      <h2>Estado de esta aplicación</h2>
-      <ul>
-        <li>Personal autenticado con MFA.</li>
-        <li>
-          Emisión desde la aplicación:{" "}
-          {config?.voting ? "habilitada" : "deshabilitada"}.
-        </li>
-        <li>
-          Modo oficial en la aplicación:{" "}
-          {config?.official ? "habilitado" : "deshabilitado"}.
-        </li>
-        <li>
-          Borradores institucionales:{" "}
-          {
+      <div className="workspace-metrics">
+        <WorkspaceMetric
+          label="Elecciones institucionales"
+          value={elections.filter((e) => e.purpose === "official").length}
+        />
+        <WorkspaceMetric
+          label="En preparación"
+          value={
             elections.filter(
               (e) => e.purpose === "official" && e.state === "draft",
             ).length
           }
-          .
-        </li>
-        <li>
-          Elecciones oficiales abiertas en la base de datos:{" "}
-          {
+          tone="purple"
+        />
+        <WorkspaceMetric
+          label="Abiertas"
+          value={
             elections.filter(
               (e) => e.purpose === "official" && e.state === "open",
             ).length
           }
-          .
-        </li>
-      </ul>
-      <p>
-        Estos estados describen la configuración y los registros consultados; no
-        son una certificación de seguridad.
-      </p>
+          tone="green"
+        />
+      </div>
+      <h2>Estado de esta aplicación</h2>
+      <div className="readiness-list">
+        {[
+          {
+            label: "Identidad del personal",
+            detail: "Sesión protegida con verificación en dos pasos",
+            ready: true,
+          },
+          {
+            label: "Registro de votos",
+            detail: config?.voting
+              ? "Habilitado en la aplicación"
+              : "Pendiente de habilitación por el responsable",
+            ready: !!config?.voting,
+          },
+          {
+            label: "Elecciones oficiales",
+            detail: config?.official
+              ? "Modo oficial habilitado en la aplicación"
+              : "Modo oficial pendiente de habilitación",
+            ready: !!config?.official,
+          },
+          {
+            label: "Mesas con DNI",
+            detail:
+              process.env.ELECTORAL_SUPERVISED_DNI_ENABLED === "true"
+                ? "Modalidad habilitada en la aplicación"
+                : "Modalidad pendiente de habilitación",
+            ready: process.env.ELECTORAL_SUPERVISED_DNI_ENABLED === "true",
+          },
+        ].map((item) => (
+          <article
+            className={`readiness-item ${item.ready ? "readiness-done" : ""}`}
+            key={item.label}
+          >
+            <span className="readiness-indicator" aria-hidden="true">
+              {item.ready ? "✓" : "!"}
+            </span>
+            <div>
+              <strong>{item.label}</strong>
+              <p>{item.detail}</p>
+            </div>
+            <span className="state-pill">
+              {item.ready ? "Configurado" : "Pendiente"}
+            </span>
+          </article>
+        ))}
+      </div>
+      <WorkspaceNote title="Habilitar la aplicación no abre una elección">
+        Cada elección también necesita su aprobación y su apertura. Si algún
+        paso aparece pendiente, el administrador debe coordinarlo con el
+        responsable de la plataforma.
+      </WorkspaceNote>
       <h2>Preparación antes de abrir</h2>
-      <ol>
+      <ol className="preparation-steps">
         <li>
           Crear el borrador institucional y mantenerlo cerrado a la votación.
         </li>
@@ -81,8 +136,8 @@ export default async function Page() {
           modalidad individual, vincular cuentas y entregar credenciales.
         </li>
         <li>
-          Validar Auth, MFA, RLS, concurrencia, doble voto y resultados
-          protegidos en el proyecto alojado.
+          Verificar los accesos, la protección de datos, el voto único y el
+          funcionamiento de las computadoras antes de la jornada.
         </li>
         <li>
           Registrar la aprobación institucional y de seguridad antes de

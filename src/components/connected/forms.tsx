@@ -182,11 +182,7 @@ export function ConnectedElectionState({
   return (
     <OperationForm
       operation={electionStateAction.bind(null, election.id)}
-      label={
-        election.state === "draft"
-          ? "Abrir elección en PostgreSQL"
-          : "Cerrar elección en PostgreSQL"
-      }
+      label={election.state === "draft" ? "Abrir votación" : "Cerrar votación"}
     >
       <input
         type="hidden"
@@ -195,7 +191,7 @@ export function ConnectedElectionState({
       />
       <label className="blank-vote">
         <input name="confirm" type="checkbox" value="yes" required /> Confirmo
-        el cambio de estado y la revisión por el comité. No es una simulación.
+        el cambio de estado y la revisión por el comité.
       </label>
     </OperationForm>
   );
@@ -225,8 +221,8 @@ export function ConnectedImportRoll({
       operation={importRollAction.bind(null, election.id)}
       label={
         mode === "append"
-          ? "Agregar grado al padrón mediante RPC"
-          : "Reemplazar padrón mediante RPC"
+          ? "Agregar estudiantes al padrón"
+          : "Reemplazar padrón completo"
       }
       disabled={election.state !== "draft"}
     >
@@ -251,7 +247,7 @@ export function ConnectedImportRoll({
         </label>
       )}
       <input
-        aria-label="Excel para PostgreSQL"
+        aria-label="Archivo Excel de estudiantes"
         type="file"
         name="file"
         accept=".xlsx"
@@ -589,7 +585,7 @@ export function ConnectedMediaUpload({
   return (
     <OperationForm
       operation={uploadMediaAction.bind(null, election.id)}
-      label="Sanear y subir imagen privada"
+      label="Guardar imagen autorizada"
       disabled={election.state !== "draft"}
     >
       <p>
@@ -742,8 +738,8 @@ export function ConnectedVote({
     <>
       <div className="notice">
         {allowed
-          ? "La solicitud se registrará en PostgreSQL mediante la RPC transaccional."
-          : "Emisión RPC deshabilitada. No se enviará ninguna selección."}{" "}
+          ? "Tu voto se registrará de forma segura y no podrá modificarse."
+          : "La votación todavía no está disponible. Consulta al comité."}{" "}
         La cuenta autenticada determina el elector; no se envía un identificador
         de estudiante junto a la selección.
       </div>
@@ -833,7 +829,7 @@ export function ConnectedVote({
                 }
               }}
             >
-              Confirmar y emitir solicitud RPC
+              Confirmar y emitir mi voto
             </button>
           </div>
         </section>

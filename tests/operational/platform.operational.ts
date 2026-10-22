@@ -14,7 +14,7 @@ async function login(page: Page, email = "admin@example.test") {
   await page.getByLabel("Código del autenticador").fill("123456");
   await page.getByRole("button", { name: "Verificar segundo factor" }).click();
   await expect(
-    page.getByRole("heading", { name: "Panel electoral conectado" }),
+    page.getByRole("heading", { name: "Panel electoral" }),
   ).toBeVisible();
 }
 test.beforeEach(async ({ request }) => {
@@ -74,13 +74,11 @@ test("el operador incorpora colegio, el encargado configura sus datos y prepara 
 }) => {
   await login(page);
   await page.goto("/sistema/instituciones");
-  const provision = page
-    .locator("form")
-    .filter({
-      has: page.getByRole("button", {
-        name: "Registrar institución y encargado",
-      }),
-    });
+  const provision = page.locator("form").filter({
+    has: page.getByRole("button", {
+      name: "Registrar institución y encargado",
+    }),
+  });
   await provision
     .getByLabel("Nombre de la institución")
     .fill("Colegio ficticio independiente");
@@ -140,28 +138,26 @@ test("el operador incorpora colegio, el encargado configura sus datos y prepara 
     .click();
   await expect(staff).toHaveURL(new RegExp(`/sistema/${eid}$`));
   await expect(
-    staff.getByRole("button", { name: "Abrir elección en PostgreSQL" }),
+    staff.getByRole("button", { name: "Abrir votación" }),
   ).toHaveCount(0);
   await staff.goto(`/sistema/${eid}/padron`);
   const book = new ExcelJS.Workbook();
   const sheet = book.addWorksheet("Ficticio");
   sheet.addRow(["dni", "nombre", "grado", "seccion"]);
   sheet.addRow([1, "Estudiante ficticio", 1, "A"]);
-  await staff
-    .getByLabel("Excel para PostgreSQL")
-    .setInputFiles({
-      name: "formato-invalido.xlsx",
-      mimeType:
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      buffer: Buffer.from(await book.xlsx.writeBuffer()),
-    });
+  await staff.getByLabel("Archivo Excel de estudiantes").setInputFiles({
+    name: "formato-invalido.xlsx",
+    mimeType:
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    buffer: Buffer.from(await book.xlsx.writeBuffer()),
+  });
   await staff
     .getByLabel(
       "Confirmo el reemplazo completo y la revocación de credenciales previas.",
     )
     .check();
   await staff
-    .getByRole("button", { name: "Reemplazar padrón mediante RPC" })
+    .getByRole("button", { name: "Reemplazar padrón completo" })
     .click();
   await expect(staff.locator("main").getByRole("alert")).toContainText(
     "DNI obligatorio como texto de exactamente 8 dígitos",

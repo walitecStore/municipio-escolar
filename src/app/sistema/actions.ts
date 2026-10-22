@@ -159,7 +159,7 @@ export async function electionStateAction(
       p_state: next,
     });
     revalidatePath(`/sistema/${id}`);
-    return { message: "Estado actualizado en PostgreSQL." };
+    return { message: "Estado de la elección actualizado." };
   } catch {
     return fail();
   }
@@ -451,7 +451,7 @@ export async function voteAction(
     if (!votingAllowed(config, access.election))
       return {
         error:
-          "La emisión RPC está deshabilitada o la elección no está abierta y aprobada.",
+          "La votación no está disponible. La elección debe estar abierta y autorizada.",
       };
     if (form.get("confirm") !== "yes")
       return { error: "Confirma tu selección antes de emitir la solicitud." };

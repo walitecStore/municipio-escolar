@@ -1,12 +1,19 @@
 "use client";
+import { WorkspaceHeading } from "@/components/connected/workspace-ui";
 import Link from "next/link";
 export default function ErrorPage({ reset }: { reset: () => void }) {
   return (
     <section className="panel">
-      <h1>Acceso electoral no disponible</h1>
+      <WorkspaceHeading
+        icon="security"
+        eyebrow="TE AYUDAMOS A CONTINUAR"
+        title="Acceso electoral no disponible"
+      >
+        Revisa tu sesión y vuelve a intentarlo.
+      </WorkspaceHeading>
       <p>
-        La sesión, autorización o configuración no permite completar esta
-        operación. No se muestran detalles internos ni datos sensibles.
+        Si tu sesión terminó, inicia sesión nuevamente. Si el problema continúa,
+        consulta al administrador de tu institución.
       </p>
       <div className="roll-actions">
         <Link className="button primary" href="/sistema/login">

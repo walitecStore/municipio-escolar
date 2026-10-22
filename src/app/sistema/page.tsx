@@ -52,7 +52,7 @@ export default async function Page() {
       <div className="dashboard-heading">
         <Heading
           eyebrow="TU ESPACIO ELECTORAL"
-          title="Panel electoral conectado"
+          title="Panel electoral"
           description={`Perfil autorizado: ${session.role === "administrator" ? "Administrador" : session.role === "committee" ? "Comité electoral" : "Elector"}. Acompaña cada etapa del proceso de tu comunidad.`}
         />
         <form action={logoutAction}>

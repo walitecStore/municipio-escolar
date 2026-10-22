@@ -7,6 +7,8 @@ export function Booth({ configured }: { configured: boolean }) {
     state: "ready",
   } as StationState);
   const [connected, setConnected] = useState(configured);
+  const [connectionError, setConnectionError] = useState("");
+  const [connecting, setConnecting] = useState(false);
   const [choice, setChoice] = useState("");
   const [expiredState, setExpiredState] = useState<StationState | null>(null);
   const expired = expiredState === state;
@@ -24,8 +26,19 @@ export function Booth({ configured }: { configured: boolean }) {
       {!connected ? (
         <form
           action={async (f) => {
-            await action(f);
-            setConnected(true);
+            setConnecting(true);
+            setConnectionError("");
+            try {
+              const result = await boothAction({ state: "ready" }, f);
+              if (result.error) setConnectionError(result.error);
+              else setConnected(true);
+            } catch {
+              setConnectionError(
+                "No se pudo habilitar esta computadora. Consulta al comité y vuelve a intentarlo.",
+              );
+            } finally {
+              setConnecting(false);
+            }
           }}
         >
           <input type="hidden" name="operation" value="connect" />
@@ -40,8 +53,9 @@ export function Booth({ configured }: { configured: boolean }) {
               maxLength={64}
             />
           </label>
-          <button disabled={busy} className="button primary">
-            Habilitar equipo
+          {connectionError && <p role="alert">{connectionError}</p>}
+          <button disabled={busy || connecting} className="button primary">
+            {connecting ? "Habilitando…" : "Habilitar equipo"}
           </button>
         </form>
       ) : (

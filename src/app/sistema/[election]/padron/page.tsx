@@ -1,3 +1,12 @@
+import Link from "next/link";
+import {
+  WorkspaceHeading,
+  WorkspaceMetric,
+} from "@/components/connected/workspace-ui";
+import {
+  RollDirectory,
+  RollTemplate,
+} from "@/components/connected/roll-directory";
 import { protectedElection } from "@/lib/connected/session";
 import { rollSchema, summarySchema } from "@/lib/connected/data";
 import {
@@ -21,9 +30,42 @@ export default async function Page({
   const counts = summarySchema.parse(summary.data);
   return (
     <>
-      <h1>Padrón conectado · {election.year}</h1>
+      <WorkspaceHeading
+        icon="roll"
+        eyebrow="ESTUDIANTES DE TU INSTITUCIÓN"
+        title={`Padrón electoral · ${election.year}`}
+        action={
+          <div className="heading-actions">
+            <Link className="button secondary" href="#registros-padron">
+              Ver estudiantes
+            </Link>
+            <Link className="button primary" href="#importar-padron">
+              Importar estudiantes
+            </Link>
+          </div>
+        }
+      >
+        Organiza el padrón por grado y sección. Busca a cada estudiante por su
+        nombre o DNI.
+      </WorkspaceHeading>
+      <div className="workspace-metrics">
+        <WorkspaceMetric
+          label="Estudiantes registrados"
+          value={students.length}
+        />
+        <WorkspaceMetric
+          label="Participaciones registradas"
+          value={counts.reduce((n, c) => n + c.voters, 0)}
+          tone="green"
+        />
+        <WorkspaceMetric
+          label="Por participar"
+          value={counts.reduce((n, c) => n + c.pending, 0)}
+          tone="purple"
+        />
+      </div>
       <section className="panel">
-        <h2>Conteos de PostgreSQL</h2>
+        <h2>Resumen por grado y sección</h2>
         <p>
           {counts.reduce((n, c) => n + c.electors, 0)} electores ·{" "}
           {counts.reduce((n, c) => n + c.voters, 0)} votantes ·{" "}
@@ -54,53 +96,27 @@ export default async function Page({
           </table>
         </div>
       </section>
-      <section className="panel section">
-        <h2>Importación transaccional</h2>
+      <section className="panel section" id="importar-padron">
+        <span className="step-badge">CARGA DE ESTUDIANTES</span>
+        <h2>Importar padrón desde Excel</h2>
+        <RollTemplate official={election.purpose === "official"} />
         <ConnectedImportRoll election={election} />
       </section>
       <section className="panel section">
         <h2>Corregir registros del padrón</h2>
         <p>
           {election.supervised_dni
-            ? "Modalidad presencial: el alumno se identifica con DNI y el comité lo verifica. No requiere cuenta Auth individual."
+            ? "Modalidad presencial: el alumno se identifica con DNI y el comité lo verifica. No necesita correo ni contraseña."
             : "Modalidad individual: cada cuenta debe existir previamente en Auth. No se crean usuarios ni se usan claves administrativas desde esta página."}
         </p>
         <ConnectedCorrectStudent election={election} students={students} />
       </section>
-      <section className="panel section">
+      <section className="panel section" id="registros-padron">
         <h2>Registros autorizados</h2>
-        <div className="table-scroll">
-          <table aria-label="Padrón conectado">
-            <thead>
-              <tr>
-                <th>DNI / código</th>
-                <th>Nombre</th>
-                <th>Grado</th>
-                <th>Sección</th>
-                <th>
-                  {election.supervised_dni ? "Modalidad" : "Cuenta vinculada"}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {students.map((s) => (
-                <tr key={s.id}>
-                  <td>{s.code}</td>
-                  <td>{s.full_name}</td>
-                  <td>{s.grade}</td>
-                  <td>{s.section}</td>
-                  <td>
-                    {election.supervised_dni
-                      ? "DNI presencial"
-                      : s.auth_user_id
-                        ? "Sí"
-                        : "Pendiente"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <RollDirectory
+          students={students}
+          supervised={election.supervised_dni}
+        />
       </section>
     </>
   );

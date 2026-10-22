@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Heading } from "@/components/ui";
+import { WorkspaceHeading } from "@/components/connected/workspace-ui";
 import { LoginForm } from "@/components/connected/auth-forms";
 import { integrationConfig } from "@/lib/connected/env";
 export default async function Page({
@@ -10,12 +10,15 @@ export default async function Page({
   const status = await searchParams;
   return (
     <>
-      <Heading
-        eyebrow="ACCESO AUTORIZADO"
+      <WorkspaceHeading
+        icon="access"
+        eyebrow="BIENVENIDO A TU COMUNIDAD"
         title="Iniciar sesión electoral"
-        description="Identifícate con tu cuenta autorizada. El acceso del comité requiere verificación de dos factores."
-      />
-      <section className="panel">
+      >
+        Ingresa con tu cuenta personal para continuar con la gestión de tu
+        institución.
+      </WorkspaceHeading>
+      <section className="panel focused-form">
         {status.password === "updated" && (
           <p role="status">Tu contraseña se actualizó correctamente</p>
         )}

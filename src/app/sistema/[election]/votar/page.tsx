@@ -1,3 +1,4 @@
+import { WorkspaceHeading } from "@/components/connected/workspace-ui";
 import Link from "next/link";
 import { protectedElection } from "@/lib/connected/session";
 import { integrationConfig } from "@/lib/connected/env";
@@ -22,12 +23,16 @@ export default async function Page({
   if (response.error) throw new Error("No se pudo consultar la cédula.");
   return (
     <section className="panel">
-      <h1>Votación conectada</h1>
+      <WorkspaceHeading icon="vote" eyebrow="TU VOZ CUENTA" title="Mi votación">
+        Lee las propuestas, elige una opción y confirma tu voto una sola vez.
+      </WorkspaceHeading>
       <p>
         Modo:{" "}
         {election.purpose === "test"
           ? "Pruebas con datos ficticios"
-          : "Elección oficial aprobada"}
+          : election.security_approved
+            ? "Elección institucional autorizada"
+            : "Elección institucional pendiente de autorización"}
         . Revisa las propuestas antes de elegir.
       </p>
       {election.state !== "draft" && (

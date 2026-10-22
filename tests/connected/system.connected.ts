@@ -36,7 +36,7 @@ async function login(page: Page, email = "admin@example.test") {
       .click();
   }
   await expect(
-    page.getByRole("heading", { name: "Panel electoral conectado" }),
+    page.getByRole("heading", { name: "Panel electoral" }),
   ).toBeVisible();
 }
 test.beforeEach(async ({ request }) => {
@@ -60,7 +60,7 @@ test("Auth SDK real, MFA, cookies HttpOnly y revocación verificadas en servidor
   expect(await page.evaluate(() => localStorage.length)).toBe(0);
   await page.goto(`/sistema/${id}/padron`);
   await expect(
-    page.getByRole("table", { name: "Padrón conectado" }).locator("tbody tr"),
+    page.getByRole("table", { name: "Padrón electoral" }).locator("tbody tr"),
   ).toHaveCount(230);
   await request.post(`${fixture}/__test/scenario`, {
     data: { rejectUsers: true },
@@ -90,7 +90,9 @@ test("elector autenticado no puede leer padrón ni resultados; elección oficial
     page.getByRole("heading", { name: "Acceso electoral no disponible" }),
   ).toBeVisible();
   await page.goto(`/sistema/${id}/votar`);
-  await expect(page.locator("main")).toContainText("Emisión RPC deshabilitada");
+  await expect(page.locator("main")).toContainText(
+    "La votación todavía no está disponible",
+  );
   const stats = await (await request.get(`${fixture}/__test/state`)).json();
   expect(stats.calls.get_electoral_roll ?? 0).toBe(0);
   expect(stats.calls.cast_electoral_vote ?? 0).toBe(0);
@@ -132,7 +134,7 @@ test("entrega individual, voto con RPC y recuento real inaccesible hasta cierre"
     .getByRole("button", { name: "Revisar antes de emitir" })
     .click();
   await student
-    .getByRole("button", { name: "Confirmar y emitir solicitud RPC" })
+    .getByRole("button", { name: "Confirmar y emitir mi voto" })
     .click();
   await expect(student.getByRole("status").first()).toContainText(
     "Participación registrada",
@@ -168,9 +170,7 @@ test("subida saneada al Storage privado y respuesta de imagen sin caché públic
   await page
     .getByLabel("Confirmo que existe autorización documentada para este medio.")
     .check();
-  await page
-    .getByRole("button", { name: "Sanear y subir imagen privada" })
-    .click();
+  await page.getByRole("button", { name: "Guardar imagen autorizada" }).click();
   await expect(page.getByRole("status")).toContainText("Imagen saneada");
   const path = await page.locator("code").textContent();
   const image = await page.request.get(
@@ -192,7 +192,7 @@ test("formularios conectan importación, corrección, listas y candidatos a RPC 
 }) => {
   await login(page);
   await page.goto(`/sistema/${id}/padron`);
-  await page.getByLabel("Excel para PostgreSQL").setInputFiles({
+  await page.getByLabel("Archivo Excel de estudiantes").setInputFiles({
     name: "padron-ficticio.xlsx",
     mimeType:
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -204,11 +204,11 @@ test("formularios conectan importación, corrección, listas y candidatos a RPC 
     )
     .check();
   await page
-    .getByRole("button", { name: "Reemplazar padrón mediante RPC" })
+    .getByRole("button", { name: "Reemplazar padrón completo" })
     .click();
-  await expect(page.getByRole("status")).toContainText(
-    "Importados 230 registros",
-  );
+  await expect(
+    page.getByRole("status").filter({ hasText: "Importados" }),
+  ).toContainText("Importados 230 registros");
   await page
     .getByLabel("Registro que se corregirá")
     .selectOption("40000000-0000-4000-8000-000000000001");
@@ -218,9 +218,9 @@ test("formularios conectan importación, corrección, listas y candidatos a RPC 
   await page
     .getByRole("button", { name: "Guardar corrección y revocar credencial" })
     .click();
-  await expect(page.getByRole("status").last()).toContainText(
-    "Registro corregido",
-  );
+  await expect(
+    page.getByRole("status").filter({ hasText: "Registro corregido" }),
+  ).toContainText("Registro corregido");
   await page.goto(`/sistema/${id}/listas`);
   await page
     .getByLabel("Nombre de la lista o partido escolar", { exact: true })
@@ -229,9 +229,7 @@ test("formularios conectan importación, corrección, listas y candidatos a RPC 
   await page
     .getByLabel("Propuestas (una por línea)")
     .fill("Propuesta ficticia HTTP");
-  await page
-    .getByRole("button", { name: "Registrar lista" })
-    .click();
+  await page.getByRole("button", { name: "Registrar lista" }).click();
   await expect(
     page.getByRole("heading", { name: "Lista 2 · Lista ficticia HTTP" }),
   ).toBeVisible();
@@ -241,10 +239,10 @@ test("formularios conectan importación, corrección, listas y candidatos a RPC 
   await page
     .getByLabel("Nombres y apellidos del candidato", { exact: true })
     .fill("Alcalde ficticio HTTP");
-  await page.getByLabel("Nombre del cargo", { exact: true }).fill("Alcaldía escolar");
   await page
-    .getByRole("button", { name: "Registrar candidato" })
-    .click();
+    .getByLabel("Nombre del cargo", { exact: true })
+    .fill("Alcaldía escolar");
+  await page.getByRole("button", { name: "Registrar candidato" }).click();
   await expect(page.locator("main")).toContainText(
     "Alcalde ficticio HTTP · Alcaldía escolar",
   );

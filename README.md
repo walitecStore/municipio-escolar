@@ -178,3 +178,7 @@ Diseño adaptable a PC, tableta y celular, tarjetas por tarea, controles para vo
 ### Personal autorizado y registro de candidatos
 
 Invitaciones personales sin copiar UUID, equipo con revocación de acceso y registro guiado de listas/candidatos con símbolo y fotografía desde el dispositivo. Revisa [la guía de uso y configuración](docs/PERSONAL-Y-CANDIDATOS.md): las invitaciones requieren la migración adicional **009** y una clave privada de Auth exclusivamente en el servidor; la carga integrada de imágenes utiliza el Storage privado existente.
+
+### Pantallas de trabajo institucional
+
+Encabezados y ayudas consistentes, directorio del padrón con búsqueda y filtros, plantilla Excel descargable, indicadores de mesas y estado real de preparación. Consulta [el recorrido de uso y alcance de la actualización](docs/EXPERIENCIA-INSTITUCIONAL.md). No requiere nuevas migraciones ni modifica la aprobación o apertura de elecciones.

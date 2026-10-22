@@ -21,7 +21,7 @@ test("mesa exclusiva: habilitación, DNI, comprobación del comité, nombre, vot
   await page.getByLabel("Código del autenticador").fill("123456");
   await page.getByRole("button", { name: "Verificar segundo factor" }).click();
   await expect(
-    page.getByRole("heading", { name: "Panel electoral conectado" }),
+    page.getByRole("heading", { name: "Panel electoral" }),
   ).toBeVisible();
   await page.goto(`/sistema/${id}/presencial`);
   await page
@@ -47,6 +47,10 @@ test("mesa exclusiva: habilitación, DNI, comprobación del comité, nombre, vot
   await expect(page.locator("main").getByRole("alert")).toContainText(
     "sin sesión administrativa",
   );
+  await expect(
+    page.getByLabel("Habilitación del equipo (solo comité)"),
+  ).toBeVisible();
+  await expect(page.getByLabel("DNI", { exact: true })).toHaveCount(0);
   // A clean browser context receives a station capability, never the staff session.
   const context = await browser.newContext();
   const booth = await context.newPage();

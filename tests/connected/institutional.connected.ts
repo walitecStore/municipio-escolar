@@ -17,7 +17,7 @@ async function staffLogin(page: Page) {
   await page.getByLabel("Código del autenticador").fill("123456");
   await page.getByRole("button", { name: "Verificar segundo factor" }).click();
   await expect(
-    page.getByRole("heading", { name: "Panel electoral conectado" }),
+    page.getByRole("heading", { name: "Panel electoral" }),
   ).toBeVisible();
 }
 test.beforeEach(async ({ request }) => {
@@ -43,20 +43,23 @@ test("preparar borrador institucional sin habilitar voto oficial permite gestion
     page.getByText(/Aprobación de seguridad pendiente/),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Abrir elección en PostgreSQL" }),
+    page.getByRole("button", { name: "Abrir votación" }),
   ).toHaveCount(0);
   await page.goto("/sistema/preparacion");
   await expect(page.locator("main")).toContainText(
-    "Emisión desde la aplicación: habilitada",
+    "Registro de votosHabilitado en la aplicación",
   );
   await expect(page.locator("main")).toContainText(
-    "Modo oficial en la aplicación: deshabilitado",
+    "Modo oficial pendiente de habilitación",
   );
-  await expect(page.locator("main")).toContainText(
-    "Borradores institucionales: 1",
-  );
+  await expect(
+    page
+      .getByRole("article")
+      .filter({ hasText: "En preparación" })
+      .locator("strong"),
+  ).toHaveText("1");
   await page.goto(`/sistema/${id}/padron`);
-  await page.getByLabel("Excel para PostgreSQL").setInputFiles({
+  await page.getByLabel("Archivo Excel de estudiantes").setInputFiles({
     name: "padron-ficticio.xlsx",
     mimeType:
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -68,11 +71,11 @@ test("preparar borrador institucional sin habilitar voto oficial permite gestion
     )
     .check();
   await page
-    .getByRole("button", { name: "Reemplazar padrón mediante RPC" })
+    .getByRole("button", { name: "Reemplazar padrón completo" })
     .click();
-  await expect(page.getByRole("status")).toContainText(
-    "Importados 230 registros",
-  );
+  await expect(
+    page.getByRole("status").filter({ hasText: "Importados" }),
+  ).toContainText("Importados 230 registros");
   await expect(
     page.getByRole("navigation", { name: "Navegación de la elección" }),
   ).toContainText("Listas y candidatos");
@@ -84,7 +87,9 @@ test("preparar borrador institucional sin habilitar voto oficial permite gestion
     page.getByRole("heading", { name: "Resultados bloqueados" }),
   ).toBeVisible();
   await page.goto(`/sistema/${id}/votar`);
-  await expect(page.locator("main")).toContainText("Emisión RPC deshabilitada");
+  await expect(page.locator("main")).toContainText(
+    "La votación todavía no está disponible",
+  );
   const state = await (await request.get(`${fixture}/__test/state`)).json();
   expect(state.calls.create_institutional_election).toBe(1);
   expect(state.calls.cast_electoral_vote ?? 0).toBe(0);
@@ -155,7 +160,7 @@ test("importación por grado agrega dos Excel con DNI sin reemplazar los registr
       grade,
       "A",
     ]);
-    await page.getByLabel("Excel para PostgreSQL").setInputFiles({
+    await page.getByLabel("Archivo Excel de estudiantes").setInputFiles({
       name: `grado-ficticio-${grade}.xlsx`,
       mimeType:
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -167,13 +172,13 @@ test("importación por grado agrega dos Excel con DNI sin reemplazar los registr
       )
       .check();
     await page
-      .getByRole("button", { name: "Agregar grado al padrón mediante RPC" })
+      .getByRole("button", { name: "Agregar estudiantes al padrón" })
       .click();
-    await expect(page.getByRole("status")).toContainText(
-      "Agregados 1 registros",
-    );
     await expect(
-      page.getByRole("table", { name: "Padrón conectado" }),
+      page.getByRole("status").filter({ hasText: "Agregados" }),
+    ).toContainText("Agregados 1 registros");
+    await expect(
+      page.getByRole("table", { name: "Padrón electoral" }),
     ).toContainText(`Estudiante ficticio ${grade}`);
     expect(
       (await (await request.get(`${fixture}/__test/state`)).json()).calls
@@ -182,10 +187,10 @@ test("importación por grado agrega dos Excel con DNI sin reemplazar los registr
   }
   await page.reload();
   await expect(
-    page.getByRole("table", { name: "Padrón conectado" }),
+    page.getByRole("table", { name: "Padrón electoral" }),
   ).toContainText("Estudiante ficticio 1");
   await expect(
-    page.getByRole("table", { name: "Padrón conectado" }),
+    page.getByRole("table", { name: "Padrón electoral" }),
   ).toContainText("Estudiante ficticio 2");
   const state = await (await request.get(`${fixture}/__test/state`)).json();
   expect(state.calls.append_electoral_dni_roll).toBe(2);

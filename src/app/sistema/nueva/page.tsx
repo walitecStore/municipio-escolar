@@ -1,3 +1,4 @@
+import { WorkspaceHeading } from "@/components/connected/workspace-ui";
 import { institutionContextSchema } from "@/lib/connected/institutions";
 import { demonstrationsEnabled, publicInstitution } from "@/lib/platform";
 import { redirect } from "next/navigation";
@@ -32,7 +33,14 @@ export default async function Page() {
     : [];
   return (
     <section className="panel">
-      <h1>Preparar elección</h1>
+      <WorkspaceHeading
+        icon="preparation"
+        eyebrow="UN NUEVO PROCESO ELECTORAL"
+        title="Preparar elección"
+      >
+        Selecciona tu institución y el año electoral para comenzar a
+        organizarla.
+      </WorkspaceHeading>
       <p>
         Prepara el padrón y las candidaturas de la institución. La elección
         permanece en borrador hasta completar los requisitos y autorizar su

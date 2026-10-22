@@ -1,3 +1,4 @@
+import { WorkspaceHeading } from "@/components/connected/workspace-ui";
 import { protectedElection } from "@/lib/connected/session";
 import { rollSchema } from "@/lib/connected/data";
 import { ConnectedCredentials } from "@/components/connected/forms";
@@ -12,7 +13,14 @@ export default async function Page({
   if (response.error) throw new Error("Padrón no disponible.");
   return (
     <section className="panel">
-      <h1>Credenciales individuales</h1>
+      <WorkspaceHeading
+        icon="access"
+        eyebrow="ACCESO INDIVIDUAL DE ESTUDIANTES"
+        title="Credenciales individuales"
+      >
+        Entrega cada acceso de forma personal. Esta sección corresponde a
+        elecciones con cuentas individuales.
+      </WorkspaceHeading>
       <ConnectedCredentials
         election={election}
         students={rollSchema.parse(response.data)}
