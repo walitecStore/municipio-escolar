@@ -6,12 +6,21 @@ En la elección, abre **Listas y candidatos**. Los botones visibles llevan a:
 
 1. **Registrar lista y símbolo**: nombre de la lista o partido escolar, número
    electoral, propuestas y símbolo desde el celular o la computadora.
-2. **Registrar candidato**: nombres y apellidos, lista, cargo electoral, orden,
-   nombre del cargo, grado y sección. Su fotografía es opcional.
+2. **Registrar candidato**: nombres y apellidos, lista, **Registrar alcalde**
+   o **Registrar regidor**, nombre del cargo, grado y sección. Su fotografía es
+   opcional. No se introduce ningún número de orden del candidato.
 
-El número electoral identifica a la lista en la papeleta. El orden pertenece al
-candidato dentro de esa lista: 0 para alcalde y 1–20 para regidores. El selector
-de cargo propone el orden inicial. Se conservan las validaciones electorales.
+El número electoral identifica a la lista en la papeleta. El sistema asigna
+internamente el orden del alcalde y de cada regidor, consultando los registros
+actuales antes de guardar. Si la lista ya tiene alcalde, se propone registrar
+un regidor y la opción de otro alcalde queda deshabilitada. Para corregir al
+alcalde existente, se selecciona en Candidatura. Se conserva el orden al editar
+un regidor dentro de la misma lista.
+
+Si una validación rechaza el registro, se explica qué corregir y se conservan
+los datos y la fotografía seleccionada. Los conflictos simultáneos siguen
+protegidos por la base de datos. Esta corrección del formulario no requiere
+migraciones adicionales ni cambios de configuración.
 
 El símbolo pertenece a la lista y aparece en su ficha y en la papeleta existente.
 La fotografía pertenece al candidato. Las imágenes se previsualizan antes de
@@ -99,6 +108,11 @@ integración, 11 generales y 8 operativas), ESLint, TypeScript y compilación de
 producción con Webpack. En este entorno Turbopack no pudo abrir su proceso
 auxiliar; no se cambió el compilador predeterminado del proyecto.
 
-Captura del formulario móvil con **datos completamente ficticios**:
+El formulario actual presenta dos opciones: **Registrar alcalde** y
+**Registrar regidor**. La numeración interna se asigna automáticamente y no se
+introduce desde la pantalla.
 
-![Registro de candidatos y símbolos desde celular](images/registro-candidatos-movil.png)
+La corrección se verificó con 67 pruebas locales: 21 unitarias, 11 operativas,
+24 de integración y 11 generales. Incluye registro consecutivo de regidores,
+rechazo seguro de imágenes inválidas y conservación de los datos para corregir
+el archivo y volver a guardar.

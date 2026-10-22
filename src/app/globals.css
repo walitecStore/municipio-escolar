@@ -3897,3 +3897,57 @@ body {
     width: 100%;
   }
 }
+.app-shell .candidate-role-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  border: 0;
+  padding: 0;
+  margin: 12px 0;
+}
+.app-shell .candidate-role-picker legend {
+  color: #244f80;
+  font-weight: 800;
+  padding: 0;
+  margin-bottom: 12px;
+}
+.app-shell .candidate-role-picker .candidate-role-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px;
+  border: 2px solid #dce6f2;
+  border-radius: 15px;
+  background: white;
+  cursor: pointer;
+  margin: 0;
+}
+.app-shell .candidate-role-picker .candidate-role-option.selected {
+  border-color: #2679e8;
+  background: #eef6ff;
+  box-shadow: 0 3px 12px #1361c515;
+}
+.candidate-role-option span {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+.candidate-role-option strong {
+  font-size: 16px;
+  color: #20528b;
+}
+.candidate-role-option small {
+  font-size: 12px;
+  line-height: 1.6;
+  color: #58718d;
+}
+.app-shell .candidate-role-option.unavailable {
+  opacity: 0.65;
+  background: #f4f6fa;
+  cursor: default;
+}
+@media (max-width: 600px) {
+  .app-shell .candidate-role-picker {
+    grid-template-columns: 1fr;
+  }
+}

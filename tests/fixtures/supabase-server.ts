@@ -776,6 +776,12 @@ const server = http.createServer(async (req, res) => {
           list.candidates = list.candidates.filter((c) => c.id !== args.p_id);
           return send(args.p_id);
         }
+        if (
+          list.candidates.some(
+            (c) => c.id !== args.p_id && c.position === args.p_position,
+          )
+        )
+          return send({ code: "23505", message: "Duplicate position" }, 409);
         const candidate = {
           id: args.p_id ?? randomUUID(),
           name: args.p_name,

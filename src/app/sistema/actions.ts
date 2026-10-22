@@ -26,6 +26,11 @@ import {
   confirmCredentialDelivery,
   submitVote,
 } from "@/lib/electoral/backend";
+import {
+  candidateRegistrationSchema,
+  candidateConflict,
+} from "@/lib/connected/candidate-registration";
+import { listsSchema } from "@/lib/connected/data";
 import { preparePrivateElectoralImage } from "@/lib/electoral/media";
 export type OperationState = {
   error?: string;
@@ -348,41 +353,90 @@ export async function saveCandidateAction(
   _: OperationState,
   form: FormData,
 ): Promise<OperationState> {
+  let stage: "access" | "image" | "save" = "access";
   try {
-    const access = await staffAccess(id, true);
+    const access = await staffAccess(id);
+    if (access.election.state !== "draft")
+      return {
+        error:
+          "Solo puedes registrar o editar candidatos mientras la elección esté en borrador.",
+      };
     const deleting = form.get("delete") === "yes";
-    if (deleting && form.get("confirm") !== "yes") return fail();
-    const role = z.enum(["alcalde", "regidor"]).parse(value(form, "role"));
-    const position = z.coerce
-      .number()
-      .int()
-      .min(0)
-      .max(20)
-      .parse(value(form, "position"));
+    if (deleting && form.get("confirm") !== "yes")
+      return { error: "Confirma la eliminación del candidato." };
+    const parsed = candidateRegistrationSchema.safeParse({
+      ...Object.fromEntries(
+        ["id", "list", "name", "role", "title", "grade", "section"].map((k) => [
+          k,
+          value(form, k),
+        ]),
+      ),
+      position: value(form, "role") === "alcalde" ? 0 : 1,
+    });
+    if (!parsed.success) return { error: parsed.error.issues[0].message };
+    const c = parsed.data;
+    const response = await access.client.rpc("get_electoral_lists", {
+      p_election: id,
+    });
+    if (response.error)
+      return {
+        error:
+          "No se pudieron comprobar las listas. Actualiza la página e inténtalo de nuevo.",
+      };
+    const lists = listsSchema.parse(response.data);
+    const list = lists.find((l) => l.id === c.list);
+    if (!list)
+      return {
+        error:
+          "La lista seleccionada ya no está disponible en esta elección. Actualiza la página y selecciona una lista registrada.",
+      };
     if (
-      !deleting &&
-      ((role === "alcalde" && position !== 0) ||
-        (role === "regidor" && position === 0))
+      c.id &&
+      !lists.some((l) => l.candidates.some((existing) => existing.id === c.id))
     )
-      return fail();
+      return {
+        error:
+          "Ese candidato ya no está disponible. Actualiza la página antes de continuar.",
+      };
+    if (!deleting) {
+      const current = list.candidates.find((existing) => existing.id === c.id);
+      if (c.role === "alcalde") c.position = 0;
+      else if (current?.role === "regidor") c.position = current.position;
+      else {
+        const used = new Set(
+          list.candidates
+            .filter((existing) => existing.id !== c.id)
+            .map((existing) => existing.position),
+        );
+        const free = Array.from({ length: 20 }, (_, i) => i + 1).find(
+          (n) => !used.has(n),
+        );
+        if (!free)
+          return {
+            error:
+              "Esta lista ya tiene el máximo de regidores. Edita un candidato existente si necesitas corregir sus datos.",
+          };
+        c.position = free;
+      }
+      const conflict = candidateConflict(list, c);
+      if (conflict) return { error: conflict };
+    }
+    stage = "image";
+    const photo = deleting
+      ? null
+      : await formImage(access, id, form, "photoFile", value(form, "photo"));
+    stage = "save";
     await access.rpc.call("manage_electoral_candidate", {
       p_election: id,
-      p_id: optionalId(value(form, "id")),
-      p_list: uuid.parse(value(form, "list")),
-      p_name: z.string().min(1).max(120).parse(value(form, "name")),
-      p_role: role,
-      p_position: position,
-      p_title: z.string().min(1).max(100).parse(value(form, "title")),
-      p_grade: z.coerce
-        .number()
-        .int()
-        .min(1)
-        .max(5)
-        .parse(value(form, "grade")),
-      p_section: z.enum(["A", "B", "C"]).parse(value(form, "section")),
-      p_photo: deleting
-        ? null
-        : await formImage(access, id, form, "photoFile", value(form, "photo")),
+      p_id: optionalId(c.id),
+      p_list: c.list,
+      p_name: c.name,
+      p_role: c.role,
+      p_position: c.position,
+      p_title: c.title,
+      p_grade: c.grade,
+      p_section: c.section,
+      p_photo: photo,
       p_delete: deleting,
     });
     revalidatePath(`/sistema/${id}/listas`);
@@ -391,8 +445,27 @@ export async function saveCandidateAction(
         ? "Candidatura eliminada."
         : "Candidato registrado correctamente.",
     };
-  } catch {
-    return fail();
+  } catch (error) {
+    const code =
+      error && typeof error === "object" && "code" in error
+        ? String(error.code)
+        : "";
+    if (code === "23505")
+      return {
+        error:
+          "Otro integrante acaba de registrarse en esta lista. Vuelve a pulsar Registrar candidato para actualizar la asignación automática; no se guardó un duplicado.",
+      };
+    if (stage === "image")
+      return {
+        error:
+          "No se pudo guardar la fotografía. Usa JPG, PNG o WebP de hasta 5 MB y confirma la autorización. También puedes registrar al candidato sin foto.",
+      };
+    return {
+      error:
+        stage === "access"
+          ? "No se pudo comprobar tu acceso. Revisa tu sesión y la verificación de seguridad antes de intentarlo de nuevo."
+          : "No se pudo guardar el candidato. Comprueba que la elección siga en borrador y actualiza la página. Si continúa, consulta al administrador.",
+    };
   }
 }
 export async function credentialAction(

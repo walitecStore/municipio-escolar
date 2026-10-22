@@ -2,6 +2,7 @@
 import {
   useActionState,
   useState,
+  useRef,
   type ReactNode,
   type FormEventHandler,
 } from "react";
@@ -19,6 +20,7 @@ import {
   voteStatusAction,
   type OperationState,
 } from "@/app/sistema/actions";
+import { suggestCandidateSlot } from "@/lib/connected/candidate-registration";
 import { ElectoralImagePicker } from "./image-picker";
 import type { ConnectedElection } from "@/lib/connected/policy";
 import type { ConnectedElector, ConnectedList } from "@/lib/connected/data";
@@ -53,19 +55,36 @@ function OperationForm({
   label,
   disabled = false,
   onReset,
+  preserveOnError = false,
 }: {
   operation: Operation;
   children: ReactNode;
   label: string;
   disabled?: boolean;
   onReset?: FormEventHandler<HTMLFormElement>;
+  preserveOnError?: boolean;
 }) {
+  const rejected = useRef(false);
   const [state, action, pending] = useActionState(
-    operation,
+    async (previous: OperationState, form: FormData) => {
+      const result = await operation(previous, form);
+      rejected.current = !!result.error;
+      return result;
+    },
     {} as OperationState,
   );
   return (
-    <form action={action} onReset={onReset}>
+    <form
+      action={action}
+      onReset={(event) => {
+        if (preserveOnError && rejected.current) {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+        onReset?.(event);
+      }}
+    >
       {children}
       <Notice state={state} />
       <button className="button primary" disabled={pending || disabled}>
@@ -430,6 +449,142 @@ export function ConnectedListEditor({
     </>
   );
 }
+function CandidateRegistrationFields({
+  lists,
+  candidate,
+}: {
+  lists: ConnectedList[];
+  candidate?: ConnectedList["candidates"][number] & { list: string };
+}) {
+  const [listId, setListId] = useState(candidate?.list ?? lists[0]?.id ?? "");
+  const list = lists.find((l) => l.id === listId);
+  const initial = suggestCandidateSlot(list, candidate?.id);
+  const [role, setRole] = useState(candidate?.role ?? initial.role);
+  const [title, setTitle] = useState(
+    candidate?.title ??
+      (initial.role === "alcalde" ? "Alcaldía escolar" : "Regiduría escolar"),
+  );
+  const mayorExists = list?.candidates.some(
+    (c) => c.role === "alcalde" && c.id !== candidate?.id,
+  );
+  return (
+    <>
+      <label>
+        Nombres y apellidos del candidato
+        <input
+          name="name"
+          required
+          maxLength={120}
+          defaultValue={candidate?.name}
+        />
+      </label>
+      <label>
+        Lista o partido al que pertenece
+        <select
+          aria-label="Lista de la candidatura"
+          name="list"
+          required
+          value={listId}
+          onChange={(e) => {
+            const next = lists.find((l) => l.id === e.target.value);
+            const suggested = suggestCandidateSlot(next, candidate?.id);
+            setListId(e.target.value);
+            setRole(suggested.role);
+            setTitle(
+              suggested.role === "alcalde"
+                ? "Alcaldía escolar"
+                : "Regiduría escolar",
+            );
+          }}
+        >
+          {lists.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      {mayorExists && (
+        <p className="notice">
+          Esta lista ya tiene alcalde. Puedes registrar sus regidores; para
+          cambiar los datos del alcalde, selecciónalo en Candidatura.
+        </p>
+      )}
+      <fieldset className="candidate-role-picker">
+        <legend>¿Qué deseas registrar?</legend>
+        <label
+          className={`candidate-role-option ${role === "alcalde" ? "selected" : ""} ${mayorExists ? "unavailable" : ""}`}
+        >
+          <input
+            type="radio"
+            name="role"
+            value="alcalde"
+            checked={role === "alcalde"}
+            disabled={mayorExists}
+            onChange={() => {
+              setRole("alcalde");
+              setTitle("Alcaldía escolar");
+            }}
+          />
+          <span>
+            <strong>Registrar alcalde</strong>
+            <small>
+              {mayorExists
+                ? "Esta lista ya tiene alcalde"
+                : "Representante principal de la lista"}
+            </small>
+          </span>
+        </label>
+        <label
+          className={`candidate-role-option ${role === "regidor" ? "selected" : ""}`}
+        >
+          <input
+            type="radio"
+            name="role"
+            value="regidor"
+            checked={role === "regidor"}
+            onChange={() => {
+              setRole("regidor");
+              setTitle("Regiduría escolar");
+            }}
+          />
+          <span>
+            <strong>Registrar regidor</strong>
+            <small>Integrante del equipo del municipio escolar</small>
+          </span>
+        </label>
+      </fieldset>
+      <label>
+        Nombre del cargo
+        <input
+          name="title"
+          required
+          maxLength={100}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+      </label>
+      <label>
+        Grado
+        <select name="grade" defaultValue={candidate?.grade ?? 1}>
+          {[1, 2, 3, 4, 5].map((g) => (
+            <option key={g} value={g}>
+              {g}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Sección
+        <select name="section" defaultValue={candidate?.section ?? "A"}>
+          {["A", "B", "C"].map((s) => (
+            <option key={s}>{s}</option>
+          ))}
+        </select>
+      </label>
+    </>
+  );
+}
 export function ConnectedCandidateEditor({
   election,
   lists,
@@ -458,89 +613,22 @@ export function ConnectedCandidateEditor({
       <OperationForm
         key={id}
         operation={saveCandidateAction.bind(null, election.id)}
+        preserveOnError
         label={
           candidate ? "Guardar cambios del candidato" : "Registrar candidato"
         }
         disabled={election.state !== "draft" || !lists.length}
       >
         <input name="id" type="hidden" value={id} />
-        <label>
-          Nombres y apellidos del candidato
-          <input
-            name="name"
-            required
-            maxLength={120}
-            defaultValue={candidate?.name}
-          />
-        </label>
-        <label>
-          Lista o partido al que pertenece
-          <select
-            aria-label="Lista de la candidatura"
-            name="list"
-            required
-            defaultValue={candidate?.list}
-          >
-            {lists.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Cargo electoral
-          <select
-            name="role"
-            defaultValue={candidate?.role ?? "alcalde"}
-            onChange={(event) => {
-              const position = event.currentTarget.form?.elements.namedItem(
-                "position",
-              ) as HTMLInputElement | null;
-              if (position)
-                position.value =
-                  event.currentTarget.value === "alcalde" ? "0" : "1";
-            }}
-          >
-            <option value="alcalde">Alcalde escolar</option>
-            <option value="regidor">Regidor</option>
-          </select>
-        </label>
-        <label>
-          Orden del candidato (0: alcalde; 1–20: regidores)
-          <input
-            type="number"
-            name="position"
-            min={0}
-            max={20}
-            defaultValue={candidate?.position ?? 0}
-          />
-        </label>
-        <label>
-          Nombre del cargo
-          <input
-            name="title"
-            required
-            maxLength={100}
-            defaultValue={candidate?.title ?? "Alcaldía escolar"}
-          />
-        </label>
-        <label>
-          Grado
-          <select name="grade" defaultValue={candidate?.grade ?? 1}>
-            {[1, 2, 3, 4, 5].map((g) => (
-              <option key={g}>{g}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Sección
-          <select name="section" defaultValue={candidate?.section ?? "A"}>
-            {["A", "B", "C"].map((s) => (
-              <option key={s}>{s}</option>
-            ))}
-          </select>
-        </label>
+        <CandidateRegistrationFields
+          key={lists
+            .flatMap((l) =>
+              l.candidates.map((c) => `${c.id}:${c.role}:${c.position}`),
+            )
+            .join(",")}
+          lists={lists}
+          candidate={candidate}
+        />
         <input type="hidden" name="photo" value={candidate?.photo_path ?? ""} />
         <ElectoralImagePicker
           field="photoFile"

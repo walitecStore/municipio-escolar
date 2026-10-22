@@ -24,10 +24,13 @@ export function ElectoralImagePicker({
   );
   useEffect(() => {
     const form = input.current?.form;
-    const reset = () => {
-      setFile(null);
-      setPreview("");
-      setError("");
+    const reset = (event: Event) => {
+      queueMicrotask(() => {
+        if (event.defaultPrevented) return;
+        setFile(null);
+        setPreview("");
+        setError("");
+      });
     };
     form?.addEventListener("reset", reset);
     return () => form?.removeEventListener("reset", reset);
