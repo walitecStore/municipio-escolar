@@ -32,9 +32,9 @@ export function electionModules(
     return [
       {
         key: "listas",
-        title: "Listas y candidatos",
+        title: "Mostrar candidatos",
         description: "Conoce las candidaturas y sus propuestas.",
-        href: `${base}/listas`,
+        href: `${base}/candidatos`,
         icon: "users",
         tone: "blue",
       },
@@ -58,11 +58,21 @@ export function electionModules(
     },
     {
       key: "listas",
-      title: "Listas y candidatos",
-      description: "Organiza candidaturas, cargos y propuestas.",
+      title: "Registrar candidato y plana de regiduría",
+      description:
+        "Inscribe al alcalde, su partido y sus regidores paso a paso.",
       href: `${base}/listas`,
       icon: "users",
       tone: "blue",
+    },
+    {
+      key: "candidatos",
+      title: "Mostrar candidatos",
+      description:
+        "Consulta fotos, símbolos y equipos de los partidos inscritos.",
+      href: `${base}/candidatos`,
+      icon: "users",
+      tone: "purple",
     },
     {
       key: "presencial",
@@ -75,14 +85,16 @@ export function electionModules(
       tone: "green",
     },
     ...(!election.supervised_dni
-      ? [{
-          key: "credenciales",
-          title: "Credenciales",
-          description: "Prepara y entrega el acceso individual.",
-          href: `${base}/credenciales`,
-          icon: "key" as const,
-          tone: "green" as const,
-        }]
+      ? [
+          {
+            key: "credenciales",
+            title: "Credenciales",
+            description: "Prepara y entrega el acceso individual.",
+            href: `${base}/credenciales`,
+            icon: "key" as const,
+            tone: "green" as const,
+          },
+        ]
       : []),
     {
       key: "resultados",

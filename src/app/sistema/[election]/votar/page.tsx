@@ -36,8 +36,8 @@ export default async function Page({
         . Revisa las propuestas antes de elegir.
       </p>
       {election.state !== "draft" && (
-        <Link className="text-link" href={`/sistema/${id}/listas`}>
-          Consultar listas y candidatos autorizados
+        <Link className="text-link" href={`/sistema/${id}/candidatos`}>
+          Mostrar candidatos
         </Link>
       )}
       <ConnectedVote

@@ -35,6 +35,13 @@ const invitedStaff = new Map<
   }
 >();
 let generatedInvites = 0;
+const slateReceipts = new Map<
+  string,
+  { id: string; number: number; deleted: boolean }
+>();
+let slateMissing = false,
+  slateReject = false,
+  slateLost = false;
 let phase = "draft",
   purpose = "test",
   approved = false,
@@ -247,6 +254,10 @@ const server = http.createServer(async (req, res) => {
       inviteTokens.clear();
       invitedStaff.clear();
       generatedInvites = 0;
+      slateReceipts.clear();
+      slateMissing = false;
+      slateReject = false;
+      slateLost = false;
       supervisedDni = false;
       station = null;
       turn = null;
@@ -286,10 +297,33 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.pathname === "/__test/scenario") {
       const data = JSON.parse((await body(req)).toString());
+      if (typeof data.slateMissing === "boolean")
+        slateMissing = data.slateMissing;
+      if (typeof data.slateReject === "boolean") slateReject = data.slateReject;
+      if (typeof data.slateLost === "boolean") slateLost = data.slateLost;
       if (typeof data.recoveryProvider === "string")
         recoveryProvider = data.recoveryProvider;
       if (typeof data.institutionalFunctionMissing === "boolean")
         institutionalFunctionMissing = data.institutionalFunctionMissing;
+      if (
+        typeof data.galleryCount === "number" &&
+        data.galleryCount >= 0 &&
+        data.galleryCount <= 10
+      ) {
+        lists = Array.from({ length: data.galleryCount }, (_, n) => ({
+          ...structuredClone(initialLists[0]),
+          id: randomUUID(),
+          name: `Partido ficticio ${n + 1}`,
+          number: n + 1,
+          candidates: [
+            {
+              ...initialLists[0].candidates[0],
+              id: randomUUID(),
+              name: `Candidato ficticio ${n + 1}`,
+            },
+          ],
+        }));
+      }
       if (data.clearRoll === true) students.splice(0);
       if (typeof data.supervisedDni === "boolean")
         supervisedDni = data.supervisedDni;
@@ -302,6 +336,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === "/__test/state")
       return send({
         calls,
+        slateCount: slateReceipts.size,
         passwordUpdates,
         generatedInvites,
         recoverRequests,
@@ -767,6 +802,71 @@ const server = http.createServer(async (req, res) => {
         lists = lists.filter((l) => l.id !== saved.id);
         lists.push(saved);
         return send(saved.id);
+      }
+      if (name === "get_slate_registration_receipt")
+        return slateMissing
+          ? send({ code: "PGRST202", message: "Missing" }, 404)
+          : send(slateReceipts.get(args.p_request) ?? null);
+      if (name === "register_electoral_slate") {
+        if (slateMissing)
+          return send({ code: "PGRST202", message: "Missing" }, 404);
+        if (slateReceipts.has(args.p_request))
+          return send(slateReceipts.get(args.p_request));
+        if (phase !== "draft" || slateReject)
+          return send({ code: "P0001", message: "Rejected" }, 400);
+        const number = Array.from({ length: 99 }, (_, n) => n + 1).find(
+          (n) => !lists.some((l) => l.number === n),
+        );
+        if (!number || !args.p_regidors.length)
+          return send({ message: "Invalid" }, 400);
+        const rid = randomUUID();
+        const candidates = [
+          {
+            id: randomUUID(),
+            name: args.p_mayor.name,
+            role: "alcalde" as const,
+            position: 0,
+            title: "Alcaldía escolar",
+            grade: Number(args.p_mayor.grade),
+            section: args.p_mayor.section,
+            photo_path: args.p_mayor.photo,
+          },
+          ...args.p_regidors.map(
+            (
+              r: {
+                name: string;
+                title: string;
+                grade: number;
+                section: string;
+              },
+              n: number,
+            ) => ({
+              id: randomUUID(),
+              name: r.name,
+              role: "regidor" as const,
+              position: n + 1,
+              title: r.title,
+              grade: Number(r.grade),
+              section: r.section,
+              photo_path: null,
+            }),
+          ),
+        ];
+        lists.push({
+          id: rid,
+          name: args.p_party,
+          number,
+          proposals: args.p_proposals,
+          symbol_path: args.p_symbol,
+          candidates,
+        });
+        const receipt = { id: rid, number, deleted: false };
+        slateReceipts.set(args.p_request, receipt);
+        if (slateLost) {
+          slateLost = false;
+          return send({ message: "Simulated lost response" }, 500);
+        }
+        return send(receipt);
       }
       if (name === "manage_electoral_candidate") {
         const list = lists.find((l) => l.id === args.p_list);

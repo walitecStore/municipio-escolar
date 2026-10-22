@@ -1,3 +1,4 @@
+import { fillSlateWizard } from "../fixtures/slate-ui";
 import { test, expect, type Page } from "@playwright/test";
 import sharp from "sharp";
 const fixture = "http://127.0.0.1:54329";
@@ -111,88 +112,79 @@ test("invitación privada de un uso, contraseña propia, MFA y revocación sin U
   );
   await context.close();
 });
-test("símbolo y foto se suben desde el registro, se vinculan y se muestran sin rutas manuales", async ({
+test("asistente completo: atrás conserva los datos, no guarda antes de terminar y presenta foto/símbolo en galería", async ({
   page,
   request,
 }) => {
   await login(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/sistema/${id}/listas`);
-  await page
-    .getByRole("link", { name: "Registrar lista y símbolo", exact: true })
-    .click();
-  await page
-    .getByLabel("Nombre de la lista o partido escolar")
-    .fill("Lista ficticia con símbolo");
-  await page.getByLabel("Número electoral").fill("2");
-  await page
-    .getByLabel("Propuestas (una por línea)")
-    .fill("Propuesta ficticia para la escuela");
-  const image = await sharp({
-    create: { width: 120, height: 120, channels: 3, background: "#1255dd" },
-  })
-    .png()
-    .toBuffer();
-  await page.getByLabel("Subir símbolo de la lista").setInputFiles({
-    name: "simbolo.png",
-    mimeType: "image/png",
-    buffer: image,
+  await fillSlateWizard(page, {
+    candidate: "Alcalde ficticio con foto",
+    party: "Partido ficticio completo",
+    regidors: 2,
   });
+  let stats = await (await request.get(`${fixture}/__test/state`)).json();
+  expect(stats.calls.register_electoral_slate ?? 0).toBe(0);
+  expect(stats.media).toBe(0);
+  await page.getByRole("button", { name: "Atrás", exact: true }).click();
   await expect(
-    page.getByAltText("Vista previa: Subir símbolo de la lista"),
-  ).toBeVisible();
-  await page.locator("#registrar-lista").getByRole("checkbox").check();
+    page.getByLabel("Nombres y apellidos del regidor", { exact: true }),
+  ).toHaveValue("Regidor ficticio 1");
   await page
-    .getByRole("button", { name: "Registrar lista", exact: true })
+    .getByRole("button", { name: "Siguiente regidor", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Lista 2 · Lista ficticia con símbolo" }),
+    page.getByLabel("Nombres y apellidos del regidor", { exact: true }),
+  ).toHaveValue("Regidor ficticio 2");
+  await page
+    .getByRole("button", { name: "Siguiente regidor", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Terminar registro", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Candidato y plana registrados" }),
+  ).toBeVisible();
+  await page
+    .getByRole("link", { name: "Mostrar candidatos", exact: true })
+    .first()
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Mostrar candidatos", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", {
+      name: "Alcalde ficticio con foto",
+      exact: true,
+    }),
   ).toBeVisible();
   await expect
     .poll(() =>
       page
-        .getByAltText("Símbolo electoral privado")
+        .getByAltText("Fotografía de Alcalde ficticio con foto")
         .evaluate((image: HTMLImageElement) => image.naturalWidth),
     )
     .toBeGreaterThan(0);
-  await page
-    .getByRole("link", { name: "Registrar candidato", exact: true })
-    .click();
-  await page
-    .getByLabel("Nombres y apellidos del candidato")
-    .fill("Candidato ficticio con imagen");
-  await page
-    .getByLabel("Lista de la candidatura")
-    .selectOption({ label: "Lista ficticia con símbolo" });
-  await page
-    .getByLabel("Nombre del cargo", { exact: true })
-    .fill("Alcaldía escolar");
-  await page
-    .getByLabel("Subir fotografía del candidato (opcional)")
-    .setInputFiles({
-      name: "candidato.png",
-      mimeType: "image/png",
-      buffer: image,
-    });
-  await page.locator("#registrar-candidato").getByRole("checkbox").check();
-  await page
-    .getByRole("button", { name: "Registrar candidato", exact: true })
-    .click();
-  await expect(page.locator("main")).toContainText(
-    "Candidato ficticio con imagen · Alcaldía escolar",
-  );
   await expect(
-    page.getByAltText("Fotografía autorizada de Candidato ficticio con imagen"),
+    page.getByAltText("Símbolo de Partido ficticio completo"),
   ).toBeVisible();
+  await page.getByText("Ver plana de regiduría · 2", { exact: true }).click();
+  await expect(page.locator("main")).toContainText("Regidor ficticio 2");
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
-  const state = await (await request.get(`${fixture}/__test/state`)).json();
-  expect(state.calls.register_electoral_media).toBe(2);
+  stats = await (await request.get(`${fixture}/__test/state`)).json();
+  expect(stats.calls.register_electoral_slate).toBe(1);
+  expect(stats.calls.register_electoral_media).toBe(2);
+  await page.evaluate(() => {
+    (document.activeElement as HTMLElement | null)?.blur();
+    window.scrollTo(0, 0);
+  });
   await page.screenshot({
-    path: test.info().outputPath("registro-candidatos-movil.png"),
+    path: test.info().outputPath("galeria-candidatos-movil.png"),
     fullPage: true,
   });
 });
@@ -203,6 +195,9 @@ test("registro con alcalde o regidor sin números; conserva datos y archivo tras
 }) => {
   await login(page);
   await page.goto(`/sistema/${id}/listas`);
+  await page
+    .getByText("Corregir registros existentes", { exact: true })
+    .click();
   const form = page.locator("#registrar-candidato");
   await expect(
     form.getByRole("radio", { name: /Registrar regidor/ }),
@@ -269,4 +264,102 @@ test("registro con alcalde o regidor sin números; conserva datos y archivo tras
   stats = await (await request.get(`${fixture}/__test/state`)).json();
   expect(stats.calls.manage_electoral_candidate).toBe(2);
   expect(stats.calls.register_electoral_media).toBe(1);
+});
+
+test("galería presenta seis candidatos en dos filas y cuatro en dos columnas; no ofrece un asistente sin migración", async ({
+  page,
+  request,
+}) => {
+  await login(page);
+  await request.post(`${fixture}/__test/scenario`, {
+    data: { galleryCount: 6 },
+  });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(`/sistema/${id}/candidatos`);
+  const cards = page.locator(".candidate-display-card");
+  await expect(cards).toHaveCount(6);
+  const bounds = await cards.evaluateAll((nodes) =>
+    nodes.map((n) => {
+      const r = n.getBoundingClientRect();
+      return { top: r.top, left: r.left };
+    }),
+  );
+  expect(new Set(bounds.map((r) => r.top)).size).toBe(2);
+  expect(new Set(bounds.map((r) => r.left)).size).toBe(3);
+  await page.screenshot({
+    path: test.info().outputPath("galeria-seis-pc.png"),
+    fullPage: true,
+  });
+  await request.post(`${fixture}/__test/scenario`, {
+    data: { galleryCount: 4 },
+  });
+  await page.reload();
+  await expect(cards).toHaveCount(4);
+  await expect
+    .poll(
+      async () =>
+        new Set(
+          await cards.evaluateAll((nodes) =>
+            nodes.map((n) => n.getBoundingClientRect().left),
+          ),
+        ).size,
+    )
+    .toBe(2);
+  for (const width of [320, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  }
+  await request.post(`${fixture}/__test/scenario`, {
+    data: { slateMissing: true },
+  });
+  await page.goto(`/sistema/${id}/listas`);
+  await expect(
+    page.getByText("Registro guiado pendiente de actualización", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(page.locator(".slate-wizard")).toHaveCount(0);
+});
+
+test("rechazo conserva el asistente completo; respuesta perdida se confirma sin duplicar la inscripción", async ({
+  page,
+  request,
+}) => {
+  await login(page);
+  await page.goto(`/sistema/${id}/listas`);
+  await fillSlateWizard(page, {
+    candidate: "Candidato ficticio para reintento",
+    party: "Partido ficticio para reintento",
+    regidors: 1,
+  });
+  await request.post(`${fixture}/__test/scenario`, {
+    data: { slateReject: true },
+  });
+  await page
+    .getByRole("button", { name: "Terminar registro", exact: true })
+    .click();
+  await expect(page.locator(".slate-wizard").getByRole("alert")).toContainText(
+    "No se guardó el registro",
+  );
+  await expect(
+    page.getByLabel("Nombres y apellidos del regidor", { exact: true }),
+  ).toHaveValue("Regidor ficticio 1");
+  let stats = await (await request.get(`${fixture}/__test/state`)).json();
+  expect(stats.slateCount).toBe(0);
+  await request.post(`${fixture}/__test/scenario`, {
+    data: { slateReject: false, slateLost: true },
+  });
+  await page
+    .getByRole("button", { name: "Terminar registro", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Candidato y plana registrados" }),
+  ).toBeVisible();
+  stats = await (await request.get(`${fixture}/__test/state`)).json();
+  expect(stats.slateCount).toBe(1);
+  expect(stats.calls.register_electoral_slate).toBe(2);
 });

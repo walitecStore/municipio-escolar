@@ -1880,3 +1880,176 @@ test("equipo: invitaciones privadas, MFA, aislamiento, asignación por correo y 
     "draft",
   );
 });
+
+test("registro guiado: transacción completa, numeración automática, rollback y solicitudes simultáneas sin duplicados", async () => {
+  await pool.query(
+    await readFile(
+      "supabase/migrations/202610220010_guided_slate_registration.sql",
+      "utf8",
+    ),
+  );
+  const f = await schoolFixture();
+  const eid = f.elections[0];
+  const mayor = {
+    name: "Alcalde ficticio guiado",
+    grade: 4,
+    section: "B",
+    photo: null,
+  };
+  const regidors = [
+    {
+      name: "Regidor ficticio uno",
+      title: "Educación",
+      grade: 3,
+      section: "A",
+    },
+    { name: "Regidor ficticio dos", title: "Deporte", grade: 2, section: "B" },
+  ];
+  const register = (
+    c: PoolClient,
+    request = randomUUID(),
+    party = "Partido ficticio guiado",
+    rows = regidors,
+  ) =>
+    c.query(
+      "select public.register_electoral_slate($1,$2,$3,$4,null,$5,$6) value",
+      [
+        eid,
+        request,
+        party,
+        ["Propuesta ficticia"],
+        JSON.stringify(mayor),
+        JSON.stringify(rows),
+      ],
+    );
+  const request = randomUUID();
+  const receipt = (await session(f.users[0], (c) => register(c, request)))
+    .rows[0].value;
+  assert.equal(receipt.number, 1);
+  const candidates = (
+    await pool.query(
+      "select role,position from electoral_private.candidates where election_id=$1 and list_id=$2 order by position",
+      [eid, receipt.id],
+    )
+  ).rows;
+  assert.deepEqual(candidates, [
+    { role: "alcalde", position: 0 },
+    { role: "regidor", position: 1 },
+    { role: "regidor", position: 2 },
+  ]);
+  assert.deepEqual(
+    (await session(f.users[0], (c) => register(c, request))).rows[0].value,
+    receipt,
+  );
+  await assert.rejects(
+    session(f.users[0], (c) =>
+      register(c, randomUUID(), "Partido inválido", [
+        { ...regidors[0], grade: 9 },
+      ]),
+    ),
+  );
+  assert.equal(
+    (
+      await pool.query(
+        "select count(*) n from electoral_private.choices where election_id=$1",
+        [eid],
+      )
+    ).rows[0].n,
+    "1",
+  );
+  assert.equal(
+    (
+      await pool.query(
+        "select count(*) n from electoral_private.slate_registration_receipts where election_id=$1",
+        [eid],
+      )
+    ).rows[0].n,
+    "1",
+  );
+  const parallel = await Promise.all([
+    session(f.users[0], (c) => register(c, randomUUID(), "Partido paralelo A")),
+    session(f.users[0], (c) => register(c, randomUUID(), "Partido paralelo B")),
+  ]);
+  assert.deepEqual(parallel.map((r) => r.rows[0].value.number).sort(), [2, 3]);
+  const same = randomUUID();
+  const repeated = await Promise.all([
+    session(f.users[0], (c) => register(c, same)),
+    session(f.users[0], (c) => register(c, same)),
+  ]);
+  assert.equal(repeated[0].rows[0].value.id, repeated[1].rows[0].value.id);
+  assert.equal(
+    (
+      await pool.query(
+        "select count(*) n from electoral_private.choices where election_id=$1",
+        [eid],
+      )
+    ).rows[0].n,
+    "4",
+  );
+  for (const dbRole of ["anon", "service_role"])
+    await assert.rejects(session(f.users[0], (c) => register(c), dbRole));
+  await assert.rejects(session(f.users[1], (c) => register(c)));
+  await assert.rejects(
+    session(f.users[0], async (c) => {
+      await c.query(
+        `select set_config('request.jwt.claims','{"aal":"aal1"}',true)`,
+      );
+      await register(c);
+    }),
+  );
+  await assert.rejects(
+    session(f.users[0], (c) =>
+      c.query("select * from electoral_private.slate_registration_receipts"),
+    ),
+  );
+  await assert.rejects(
+    session(admin, (c) =>
+      c.query("select public.get_slate_registration_receipt($1,$2)", [
+        eid,
+        request,
+      ]),
+    ),
+  );
+  const other = (
+    await session(f.users[1], (c) =>
+      c.query(
+        "select public.register_electoral_slate($1,$2,$3,$4,null,$5,$6) value",
+        [
+          f.elections[1],
+          randomUUID(),
+          "Otro colegio",
+          ["Propuesta ficticia"],
+          JSON.stringify(mayor),
+          JSON.stringify(regidors),
+        ],
+      ),
+    )
+  ).rows[0].value;
+  assert.equal(other.number, 1);
+  await session(f.users[0], (c) =>
+    c.query(
+      "select public.manage_electoral_list($1,$2,'',1::smallint,'{}'::text[],null,true)",
+      [eid, receipt.id],
+    ),
+  );
+  const deleted = (await session(f.users[0], (c) => register(c, request)))
+    .rows[0].value;
+  assert.equal(deleted.deleted, true);
+  assert.equal(
+    (
+      await pool.query(
+        "select count(*) n from electoral_private.choices where election_id=$1",
+        [eid],
+      )
+    ).rows[0].n,
+    "3",
+  );
+  const state = (
+    await pool.query(
+      "select state,security_approved from electoral_private.elections where id=$1",
+      [eid],
+    )
+  ).rows[0];
+  assert.equal(state.state, "draft");
+  assert.equal(state.security_approved, false);
+});

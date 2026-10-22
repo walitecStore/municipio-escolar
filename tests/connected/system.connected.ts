@@ -1,4 +1,5 @@
 import { makeDemoWorkbook } from "../../src/lib/roll/excel";
+import { fillSlateWizard } from "../fixtures/slate-ui";
 import { test, expect, type Page } from "@playwright/test";
 const fixture = "http://127.0.0.1:54329";
 const id = "10000000-0000-4000-8000-000000000001";
@@ -222,36 +223,26 @@ test("formularios conectan importación, corrección, listas y candidatos a RPC 
     page.getByRole("status").filter({ hasText: "Registro corregido" }),
   ).toContainText("Registro corregido");
   await page.goto(`/sistema/${id}/listas`);
+  await fillSlateWizard(page, {
+    candidate: "Alcalde ficticio HTTP",
+    party: "Partido ficticio HTTP",
+  });
   await page
-    .getByLabel("Nombre de la lista o partido escolar", { exact: true })
-    .fill("Lista ficticia HTTP");
-  await page.getByLabel("Número electoral", { exact: true }).fill("2");
-  await page
-    .getByLabel("Propuestas (una por línea)")
-    .fill("Propuesta ficticia HTTP");
-  await page.getByRole("button", { name: "Registrar lista" }).click();
+    .getByRole("button", { name: "Terminar registro", exact: true })
+    .click();
   await expect(
-    page.getByRole("heading", { name: "Lista 2 · Lista ficticia HTTP" }),
+    page.getByRole("heading", { name: "Candidato y plana registrados" }),
   ).toBeVisible();
   await page
-    .getByLabel("Lista de la candidatura", { exact: true })
-    .selectOption({ label: "Lista ficticia HTTP" });
-  await page
-    .getByLabel("Nombres y apellidos del candidato", { exact: true })
-    .fill("Alcalde ficticio HTTP");
-  await page
-    .getByLabel("Nombre del cargo", { exact: true })
-    .fill("Alcaldía escolar");
-  await page.getByRole("button", { name: "Registrar candidato" }).click();
-  await expect(page.locator("main")).toContainText(
-    "Alcalde ficticio HTTP · Alcaldía escolar",
-  );
+    .getByRole("link", { name: "Mostrar candidatos", exact: true })
+    .first()
+    .click();
+  await expect(page.locator("main")).toContainText("Alcalde ficticio HTTP");
   const stats = await (await request.get(`${fixture}/__test/state`)).json();
   for (const name of [
     "replace_electoral_roll",
     "correct_electoral_student",
-    "manage_electoral_list",
-    "manage_electoral_candidate",
+    "register_electoral_slate",
   ])
     expect(stats.calls[name]).toBe(1);
 });

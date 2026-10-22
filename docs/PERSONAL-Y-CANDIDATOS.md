@@ -1,33 +1,15 @@
 # Personal autorizado, símbolos y candidatos
 
-## Registrar listas y candidatos
+## Registrar candidato y plana de regiduría
 
-En la elección, abre **Listas y candidatos**. Los botones visibles llevan a:
+El registro actual se realiza paso a paso: candidato a la alcaldía, partido,
+fotografía, símbolo y regidores con sus cargos. El número electoral y el orden
+de los integrantes se asignan automáticamente. Consulta la
+[guía del registro guiado y la galería](REGISTRO-GUIADO-CANDIDATOS.md).
 
-1. **Registrar lista y símbolo**: nombre de la lista o partido escolar, número
-   electoral, propuestas y símbolo desde el celular o la computadora.
-2. **Registrar candidato**: nombres y apellidos, lista, **Registrar alcalde**
-   o **Registrar regidor**, nombre del cargo, grado y sección. Su fotografía es
-   opcional. No se introduce ningún número de orden del candidato.
-
-El número electoral identifica a la lista en la papeleta. El sistema asigna
-internamente el orden del alcalde y de cada regidor, consultando los registros
-actuales antes de guardar. Si la lista ya tiene alcalde, se propone registrar
-un regidor y la opción de otro alcalde queda deshabilitada. Para corregir al
-alcalde existente, se selecciona en Candidatura. Se conserva el orden al editar
-un regidor dentro de la misma lista.
-
-Si una validación rechaza el registro, se explica qué corregir y se conservan
-los datos y la fotografía seleccionada. Los conflictos simultáneos siguen
-protegidos por la base de datos. Esta corrección del formulario no requiere
-migraciones adicionales ni cambios de configuración.
-
-El símbolo pertenece a la lista y aparece en su ficha y en la papeleta existente.
-La fotografía pertenece al candidato. Las imágenes se previsualizan antes de
-registrar y se vinculan automáticamente al guardar. No se escriben rutas.
-Se aceptan JPG, PNG y WebP de hasta 5 MB, con confirmación de autorización.
-El servidor comprueba el contenido, elimina metadatos y guarda WebP en Storage
-privado utilizando la sesión del personal. Solo se edita en borrador.
+Este flujo requiere aplicar manualmente la migración **010** después de **009**.
+La sección **Corregir registros existentes** conserva la edición de inscripciones
+anteriores. Solo se permite modificar candidaturas en borrador.
 
 ## Invitar al equipo sin UUID
 
@@ -63,8 +45,8 @@ compensación automática porque podrían existir operaciones simultáneas.
 
 ## Configuración de producción — solo una vez
 
-Los formularios de candidatos y sus imágenes usan las migraciones y el Storage
-ya existentes. **Las invitaciones y la vista de equipo necesitan:**
+El registro guiado requiere además la migración 010 indicada en su guía.
+Las imágenes utilizan el Storage privado existente. **Las invitaciones y la vista de equipo necesitan:**
 
 1. Revisar y aplicar manualmente **solo**
    [202610220009_staff_invitations.sql](../supabase/migrations/202610220009_staff_invitations.sql)

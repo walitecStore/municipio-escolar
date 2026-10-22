@@ -182,3 +182,6 @@ Invitaciones personales sin copiar UUID, equipo con revocación de acceso y regi
 ### Pantallas de trabajo institucional
 
 Encabezados y ayudas consistentes, directorio del padrón con búsqueda y filtros, plantilla Excel descargable, indicadores de mesas y estado real de preparación. Consulta [el recorrido de uso y alcance de la actualización](docs/EXPERIENCIA-INSTITUCIONAL.md). No requiere nuevas migraciones ni modifica la aprobación o apertura de elecciones.
+
+
+Registro por pasos de candidato, partido, foto, símbolo y plana de regiduría, con numeración automática y una galería independiente: [guía de registro y activación](docs/REGISTRO-GUIADO-CANDIDATOS.md). Requiere aplicar manualmente la migración **010** después de **009**.

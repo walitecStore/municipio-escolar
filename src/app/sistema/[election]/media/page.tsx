@@ -26,8 +26,8 @@ export default async function Page({
         listas y candidatos.
       </p>
       <WorkspaceNote title="Para vincular una imagen a una candidatura">
-        Usa los campos de imagen en Listas y candidatos: la fotografía o el
-        símbolo se asignan al guardar el registro.
+        Usa los campos de imagen en Registrar candidato y plana de regiduría: la
+        fotografía o el símbolo se asignan al guardar el registro.
       </WorkspaceNote>
       <ConnectedMediaUpload election={election} />
     </section>

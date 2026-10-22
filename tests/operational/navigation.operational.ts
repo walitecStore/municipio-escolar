@@ -32,11 +32,11 @@ test("tarjetas únicas, navegación atrás estable y distribución de PC/tableta
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(`/sistema/${id}`);
   const cards = page.locator("main .module-card");
-  await expect(cards).toHaveCount(7);
+  await expect(cards).toHaveCount(8);
   const hrefs = await cards.evaluateAll((nodes) =>
     nodes.map((n) => n.getAttribute("href")),
   );
-  expect(new Set(hrefs).size).toBe(7);
+  expect(new Set(hrefs).size).toBe(8);
   await expect(
     page.getByRole("navigation", { name: "Navegación de la elección" }),
   ).toHaveCount(0);
@@ -80,7 +80,7 @@ test("tarjetas únicas, navegación atrás estable y distribución de PC/tableta
     data: { supervisedDni: false },
   });
   await page.reload();
-  await expect(page.locator("main .module-card")).toHaveCount(8);
+  await expect(page.locator("main .module-card")).toHaveCount(9);
   await page.getByRole("link", { name: /Mesas · DNI Prepara/ }).click();
   await expect(
     page.getByRole("heading", { name: "Votación presencial con DNI" }),

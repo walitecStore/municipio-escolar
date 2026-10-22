@@ -97,6 +97,7 @@ test("pantallas adaptables y estados honestos de habilitación", async ({
     "configuracion",
     "presencial",
     "listas",
+    "candidatos",
     "media",
     "resultados",
     "actas",

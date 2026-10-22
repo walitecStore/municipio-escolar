@@ -370,18 +370,20 @@ export function ConnectedCorrectStudent({
 export function ConnectedListEditor({
   election,
   lists,
+  existingOnly = false,
 }: {
   election: ConnectedElection;
   lists: ConnectedList[];
+  existingOnly?: boolean;
 }) {
-  const [id, setId] = useState("");
+  const [id, setId] = useState(existingOnly ? (lists[0]?.id ?? "") : "");
   const list = lists.find((l) => l.id === id);
   return (
     <>
       <label>
         Lista que se editará
         <select value={id} onChange={(e) => setId(e.target.value)}>
-          <option value="">Nueva lista</option>
+          {!existingOnly && <option value="">Nueva lista</option>}
           {lists.map((l) => (
             <option key={l.id} value={l.id}>
               {l.number} · {l.name}
@@ -405,17 +407,28 @@ export function ConnectedListEditor({
             defaultValue={list?.name}
           />
         </label>
-        <label>
-          Número electoral
-          <input
-            name="number"
-            type="number"
-            min={1}
-            max={99}
-            required
-            defaultValue={list?.number ?? 1}
-          />
-        </label>
+        {existingOnly ? (
+          <>
+            <input type="hidden" name="number" value={list?.number ?? ""} />
+            <p className="field-help">
+              Número electoral asignado: {list?.number ?? "Pendiente"}
+            </p>
+          </>
+        ) : (
+          <>
+            <label>
+              Número electoral
+              <input
+                name="number"
+                type="number"
+                min={1}
+                max={99}
+                required
+                defaultValue={list?.number ?? 1}
+              />
+            </label>
+          </>
+        )}
         <label>
           Propuestas (una por línea)
           <textarea

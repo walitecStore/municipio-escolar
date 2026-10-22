@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { UserPlus, Flag } from "lucide-react";
-import Image from "next/image";
 import { protectedElection } from "@/lib/connected/session";
 import { listsSchema } from "@/lib/connected/data";
-import { isStaff } from "@/lib/connected/policy";
+import {
+  WorkspaceHeading,
+  WorkspaceNote,
+} from "@/components/connected/workspace-ui";
+import { SlateWizard } from "@/components/connected/slate-wizard";
 import {
   ConnectedListEditor,
   ConnectedCandidateEditor,
@@ -14,113 +16,67 @@ export default async function Page({
   params: Promise<{ election: string }>;
 }) {
   const id = (await params).election;
-  const { client, election, session } = await protectedElection(id);
-  const response = await client.rpc("get_electoral_lists", { p_election: id });
+  const { client, election } = await protectedElection(id, true);
+  const [response, availability] = await Promise.all([
+    client.rpc("get_electoral_lists", { p_election: id }),
+    client.rpc("get_slate_registration_receipt", {
+      p_election: id,
+      p_request: "00000000-0000-4000-8000-000000000000",
+    }),
+  ]);
   if (response.error)
-    throw new Error("Listas no disponibles para esta cuenta o fase.");
+    throw new Error("No se pudieron consultar los registros de esta elección.");
   const lists = listsSchema.parse(response.data);
   return (
     <>
-      <div className="page-heading">
-        <div className="eyebrow">CANDIDATURAS DE TU INSTITUCIÓN</div>
-        <h1>Listas y candidatos</h1>
-        <p>
-          Registra primero una lista con su símbolo y después incorpora a sus
-          candidatos.
-        </p>
-      </div>
-      {isStaff(session) && election.state === "draft" && (
-        <div className="registration-actions">
-          <Link className="button secondary" href="#registrar-lista">
-            <Flag size={20} aria-hidden="true" />
-            Registrar lista y símbolo
-          </Link>
-          <Link className="button primary" href="#registrar-candidato">
-            <UserPlus size={20} aria-hidden="true" />
-            Registrar candidato
-          </Link>
-        </div>
+      <WorkspaceHeading
+        icon="team"
+        eyebrow="INSCRIPCIÓN ELECTORAL PASO A PASO"
+        title="Registrar candidato y plana de regiduría"
+      >
+        Completa los datos del alcalde, su partido y su equipo. La numeración se
+        asigna automáticamente.
+      </WorkspaceHeading>
+      {election.state === "draft" ? (
+        availability.error ? (
+          <WorkspaceNote title="Registro guiado pendiente de actualización">
+            El responsable debe aplicar la actualización de base de datos 010
+            para habilitar este asistente. Los registros existentes se conservan
+            y puedes consultarlos en Mostrar candidatos.
+          </WorkspaceNote>
+        ) : (
+          <SlateWizard election={id} />
+        )
+      ) : (
+        <WorkspaceNote title="El registro está cerrado">
+          Solo se pueden inscribir o corregir candidatos mientras la elección
+          está en borrador.
+        </WorkspaceNote>
       )}
-      {!lists.length && (
-        <section className="panel empty-election">
-          <Flag size={36} aria-hidden="true" />
-          <h2>Aún no hay listas registradas</h2>
+      {!!lists.length && (
+        <details className="panel section existing-candidate-management">
+          <summary>Corregir registros existentes</summary>
           <p>
-            Empieza por el nombre de la lista, su número electoral y su símbolo.
+            Usa estas opciones para corregir los datos de una inscripción que ya
+            se guardó.
           </p>
-        </section>
-      )}
-      {lists.map((l) => (
-        <section className="panel section" key={l.id}>
-          <h2>
-            Lista {l.number} · {l.name}
-          </h2>
-          {l.symbol_path && (
-            <Image
-              unoptimized
-              width={80}
-              height={80}
-              src={`/sistema/${id}/media/archivo?path=${encodeURIComponent(l.symbol_path)}`}
-              alt="Símbolo electoral privado"
+          <section id="editar-partido">
+            <h2>Corregir partido y símbolo</h2>
+            <ConnectedListEditor
+              election={election}
+              lists={lists}
+              existingOnly
             />
-          )}
-          <ul>
-            {l.proposals.map((p, i) => (
-              <li key={i}>{p}</li>
-            ))}
-          </ul>
-          {l.candidates.map((c) => (
-            <div className="admin-link" key={c.id}>
-              <span>
-                {c.name} · {c.title} · {c.grade}.º {c.section}
-              </span>
-              {c.photo_path && (
-                <Image
-                  unoptimized
-                  width={70}
-                  height={70}
-                  src={`/sistema/${id}/media/archivo?path=${encodeURIComponent(c.photo_path)}`}
-                  alt={`Fotografía autorizada de ${c.name}`}
-                />
-              )}
-            </div>
-          ))}
-        </section>
-      ))}
-      {isStaff(session) && (
-        <>
-          <section
-            className="panel section registration-section"
-            id="registrar-lista"
-          >
-            <span className="step-badge">PASO 1 · LISTA Y SÍMBOLO</span>
-            <h2>Registrar lista</h2>
-            <p>
-              El símbolo identifica a toda la lista y aparecerá junto a ella en
-              la votación.
-            </p>
-            <ConnectedListEditor election={election} lists={lists} />
           </section>
-          <section
-            className="panel section registration-section"
-            id="registrar-candidato"
-          >
-            <span className="step-badge">PASO 2 · CANDIDATOS</span>
-            <h2>Registrar candidato</h2>
-            <p>
-              Ingresa sus datos y selecciona la lista o partido escolar que
-              representa.
-            </p>
-            {!lists.length && (
-              <p className="notice">
-                Primero registra una lista en el paso 1 para poder agregar sus
-                candidatos.
-              </p>
-            )}
+          <section id="registrar-candidato">
+            <h2>Corregir o agregar integrantes</h2>
             <ConnectedCandidateEditor election={election} lists={lists} />
           </section>
-        </>
+        </details>
       )}
+      <Link className="button secondary" href={`/sistema/${id}/candidatos`}>
+        Mostrar candidatos
+      </Link>
     </>
   );
 }
