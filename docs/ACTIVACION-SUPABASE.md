@@ -111,7 +111,10 @@ base de datos comprueba `aal2`, además de las comprobaciones de Next.js.
 Copiar `.env.example` a `.env.local` en la máquina de desarrollo o introducir los
 valores mediante la configuración segura del alojamiento. No guardarlos en Git ni
 enviarlos por chat. No se necesita contraseña de PostgreSQL, cadena de conexión,
-`service_role` ni clave `sb_secret_`.
+`service_role` ni clave `sb_secret_` para los datos electorales y Storage.
+La función opcional de invitaciones de personal incorpora una clave privada
+separada, exclusiva del servidor y utilizada únicamente para crear enlaces de
+Auth; consulta [su configuración adicional](PERSONAL-Y-CANDIDATOS.md).
 
 | Variable                            | Valor que debes configurar                                                                        |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------- |

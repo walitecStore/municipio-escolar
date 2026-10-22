@@ -174,3 +174,7 @@ Revisa [configuración, migraciones 007–008, incorporación de colegios y alca
 ### Interfaz y navegación
 
 Diseño adaptable a PC, tableta y celular, tarjetas por tarea, controles para volver y una sección propia de actas. Consulta [la guía y las capturas de la interfaz](docs/INTERFAZ-RESPONSIVE.md). Esta actualización visual no requiere nuevas migraciones ni abre la votación.
+
+### Personal autorizado y registro de candidatos
+
+Invitaciones personales sin copiar UUID, equipo con revocación de acceso y registro guiado de listas/candidatos con símbolo y fotografía desde el dispositivo. Revisa [la guía de uso y configuración](docs/PERSONAL-Y-CANDIDATOS.md): las invitaciones requieren la migración adicional **009** y una clave privada de Auth exclusivamente en el servidor; la carga integrada de imágenes utiliza el Storage privado existente.

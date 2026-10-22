@@ -19,6 +19,7 @@ import {
   voteStatusAction,
   type OperationState,
 } from "@/app/sistema/actions";
+import { ElectoralImagePicker } from "./image-picker";
 import type { ConnectedElection } from "@/lib/connected/policy";
 import type { ConnectedElector, ConnectedList } from "@/lib/connected/data";
 type Operation = (
@@ -376,12 +377,12 @@ export function ConnectedListEditor({
       <OperationForm
         key={id}
         operation={saveListAction.bind(null, election.id)}
-        label="Guardar lista en PostgreSQL"
+        label={list ? "Guardar cambios de la lista" : "Registrar lista"}
         disabled={election.state !== "draft"}
       >
         <input name="id" type="hidden" value={id} />
         <label>
-          Nombre de lista
+          Nombre de la lista o partido escolar
           <input
             name="name"
             required
@@ -408,14 +409,13 @@ export function ConnectedListEditor({
             defaultValue={list?.proposals.join("\n")}
           />
         </label>
-        <label>
-          Ruta privada del símbolo (opcional)
-          <input
-            name="symbol"
-            defaultValue={list?.symbol_path ?? ""}
-            placeholder="UUID-elección/UUID.webp"
-          />
-        </label>
+        <input type="hidden" name="symbol" value={list?.symbol_path ?? ""} />
+        <ElectoralImagePicker
+          field="symbolFile"
+          label="Subir símbolo de la lista"
+          current={list?.symbol_path}
+          election={election.id}
+        />
       </OperationForm>
       {list && (
         <OperationForm
@@ -451,7 +451,7 @@ export function ConnectedCandidateEditor({
       <label>
         Candidatura
         <select value={id} onChange={(e) => setId(e.target.value)}>
-          <option value="">Nueva candidatura</option>
+          <option value="">Registrar nuevo candidato</option>
           {candidates.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name} · {c.title}
@@ -462,12 +462,23 @@ export function ConnectedCandidateEditor({
       <OperationForm
         key={id}
         operation={saveCandidateAction.bind(null, election.id)}
-        label="Guardar candidatura en PostgreSQL"
+        label={
+          candidate ? "Guardar cambios del candidato" : "Registrar candidato"
+        }
         disabled={election.state !== "draft" || !lists.length}
       >
         <input name="id" type="hidden" value={id} />
         <label>
-          Lista
+          Nombres y apellidos del candidato
+          <input
+            name="name"
+            required
+            maxLength={120}
+            defaultValue={candidate?.name}
+          />
+        </label>
+        <label>
+          Lista o partido al que pertenece
           <select
             aria-label="Lista de la candidatura"
             name="list"
@@ -482,23 +493,25 @@ export function ConnectedCandidateEditor({
           </select>
         </label>
         <label>
-          Nombre
-          <input
-            name="name"
-            required
-            maxLength={120}
-            defaultValue={candidate?.name}
-          />
-        </label>
-        <label>
-          Tipo
-          <select name="role" defaultValue={candidate?.role ?? "alcalde"}>
+          Cargo electoral
+          <select
+            name="role"
+            defaultValue={candidate?.role ?? "alcalde"}
+            onChange={(event) => {
+              const position = event.currentTarget.form?.elements.namedItem(
+                "position",
+              ) as HTMLInputElement | null;
+              if (position)
+                position.value =
+                  event.currentTarget.value === "alcalde" ? "0" : "1";
+            }}
+          >
             <option value="alcalde">Alcalde escolar</option>
             <option value="regidor">Regidor</option>
           </select>
         </label>
         <label>
-          Posición (0 para alcalde; 1–20 para regidores)
+          Orden del candidato (0: alcalde; 1–20: regidores)
           <input
             type="number"
             name="position"
@@ -508,12 +521,12 @@ export function ConnectedCandidateEditor({
           />
         </label>
         <label>
-          Cargo
+          Nombre del cargo
           <input
             name="title"
             required
             maxLength={100}
-            defaultValue={candidate?.title}
+            defaultValue={candidate?.title ?? "Alcaldía escolar"}
           />
         </label>
         <label>
@@ -532,10 +545,13 @@ export function ConnectedCandidateEditor({
             ))}
           </select>
         </label>
-        <label>
-          Ruta privada de fotografía (opcional)
-          <input name="photo" defaultValue={candidate?.photo_path ?? ""} />
-        </label>
+        <input type="hidden" name="photo" value={candidate?.photo_path ?? ""} />
+        <ElectoralImagePicker
+          field="photoFile"
+          label="Subir fotografía del candidato (opcional)"
+          current={candidate?.photo_path}
+          election={election.id}
+        />
       </OperationForm>
       {candidate && (
         <OperationForm

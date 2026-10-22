@@ -263,6 +263,37 @@ export async function correctStudentAction(
     return fail();
   }
 }
+async function formImage(
+  access: Awaited<ReturnType<typeof staffAccess>>,
+  id: string,
+  form: FormData,
+  field: string,
+  existing: string,
+) {
+  const file = form.get(field);
+  if (!(file instanceof File) || file.size === 0)
+    return mediaPath(id, existing);
+  if (file.size > 5 * 1024 * 1024 || form.get(`${field}Consent`) !== "yes")
+    throw new Error("Imagen sin autorización o demasiado grande.");
+  const image = await preparePrivateElectoralImage(
+    new Uint8Array(await file.arrayBuffer()),
+    id,
+  );
+  await access.rpc.call("register_electoral_media", {
+    p_election: id,
+    p_path: image.path,
+    p_consent: true,
+  });
+  const upload = await access.client.storage
+    .from("electoral-media")
+    .upload(image.path, image.bytes, {
+      contentType: image.contentType,
+      upsert: false,
+      cacheControl: "0",
+    });
+  if (upload.error) throw new Error("No se pudo subir la imagen.");
+  return image.path;
+}
 export async function saveListAction(
   id: string,
   _: OperationState,
@@ -291,12 +322,22 @@ export async function saveListAction(
       p_name: name,
       p_number: number,
       p_proposals: proposals,
-      p_symbol: mediaPath(id, value(form, "symbol")),
+      p_symbol: deleting
+        ? null
+        : await formImage(
+            access,
+            id,
+            form,
+            "symbolFile",
+            value(form, "symbol"),
+          ),
       p_delete: deleting,
     });
     revalidatePath(`/sistema/${id}/listas`);
     return {
-      message: deleting ? "Lista eliminada." : "Lista guardada en PostgreSQL.",
+      message: deleting
+        ? "Lista eliminada."
+        : "Lista registrada. El símbolo seleccionado se guardó con la lista.",
     };
   } catch {
     return fail();
@@ -339,14 +380,16 @@ export async function saveCandidateAction(
         .max(5)
         .parse(value(form, "grade")),
       p_section: z.enum(["A", "B", "C"]).parse(value(form, "section")),
-      p_photo: mediaPath(id, value(form, "photo")),
+      p_photo: deleting
+        ? null
+        : await formImage(access, id, form, "photoFile", value(form, "photo")),
       p_delete: deleting,
     });
     revalidatePath(`/sistema/${id}/listas`);
     return {
       message: deleting
         ? "Candidatura eliminada."
-        : "Candidatura guardada en PostgreSQL.",
+        : "Candidato registrado correctamente.",
     };
   } catch {
     return fail();
