@@ -997,6 +997,13 @@ const server = http.createServer(async (req, res) => {
       }
       return send(null);
     }
+    if (url.pathname === "/storage/v1/object/list/electoral-media" && req.method === "POST") {
+      if (!staff(c)) return send({ message: "Denied" }, 403);
+      const args = JSON.parse((await body(req)).toString());
+      if (args.prefix !== electionId) return send([]);
+      const objects = [...media.keys()].filter(path => path.startsWith(`${args.prefix}/`)).map((path, i) => ({ id: `asset-${i}`, name: path.slice(args.prefix.length + 1), created_at: "2026-10-23T12:00:00Z", metadata: { mimetype: "image/webp" } }));
+      return send(objects.slice(args.offset ?? 0, (args.offset ?? 0) + (args.limit ?? 100)));
+    }
     if (url.pathname.startsWith("/storage/v1/object/")) {
       const path = url.pathname.replace(
         /^\/storage\/v1\/object\/(authenticated\/)?electoral-media\//,

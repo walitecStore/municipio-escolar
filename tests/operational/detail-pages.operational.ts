@@ -109,7 +109,7 @@ test("pantallas adaptables y estados honestos de habilitación", async ({
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth,
-        ),
+        ), `${path} at ${width}px`,
       ).toBe(true);
     }
     expect(await page.locator("main").innerText()).not.toMatch(

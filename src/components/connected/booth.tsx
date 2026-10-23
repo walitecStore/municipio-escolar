@@ -1,5 +1,6 @@
 "use client";
 import { useActionState, useState, useEffect } from "react";
+import { VoterWelcome, VoterThanks } from "./voter-experience";
 import { boothAction } from "@/app/sistema/mesa/actions";
 import type { StationState } from "@/lib/connected/station";
 export function Booth({ configured }: { configured: boolean }) {
@@ -9,6 +10,7 @@ export function Booth({ configured }: { configured: boolean }) {
   const [connected, setConnected] = useState(configured);
   const [connectionError, setConnectionError] = useState("");
   const [connecting, setConnecting] = useState(false);
+  const [round, setRound] = useState(0);
   const [choice, setChoice] = useState("");
   const [expiredState, setExpiredState] = useState<StationState | null>(null);
   const expired = expiredState === state;
@@ -59,7 +61,7 @@ export function Booth({ configured }: { configured: boolean }) {
           </button>
         </form>
       ) : (
-        <>
+        <VoterWelcome key={round}>
           <button
             className="button secondary"
             onClick={() => {
@@ -161,11 +163,12 @@ export function Booth({ configured }: { configured: boolean }) {
           )}
           {state.state === "consumed" && (
             <>
+              <VoterThanks />
               <h2>Participación registrada</h2>
               <p>
                 No se muestra tu selección para proteger el secreto del voto.
               </p>
-              <form action={action}>
+              <form action={async form => { action(form); setRound(n => n + 1); }}>
                 <input type="hidden" name="operation" value="finish" />
                 <button disabled={busy} className="button primary">
                   Terminar y limpiar pantalla
@@ -184,7 +187,7 @@ export function Booth({ configured }: { configured: boolean }) {
               Comprobar estado / autorización
             </button>
           </form>
-        </>
+        </VoterWelcome>
       )}
       {state.error && <p role="alert">{state.error}</p>}
     </section>

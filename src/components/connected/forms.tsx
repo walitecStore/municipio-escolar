@@ -20,6 +20,7 @@ import {
   voteStatusAction,
   type OperationState,
 } from "@/app/sistema/actions";
+import { VoterThanks } from "./voter-experience";
 import { ElectoralImagePicker } from "./image-picker";
 import type { ConnectedElection } from "@/lib/connected/policy";
 import type { ConnectedElector, ConnectedList } from "@/lib/connected/data";
@@ -760,9 +761,7 @@ export function ConnectedVote({
         de estudiante junto a la selección.
       </div>
       {registered ? (
-        <p role="status">
-          Participación registrada. No se muestra el contenido de la papeleta.
-        </p>
+        <div role="status"><VoterThanks /><p>Participación registrada. No se muestra el contenido de la papeleta.</p></div>
       ) : allowed && !review && !unresolved ? (
         <form
           onSubmit={(e) => {

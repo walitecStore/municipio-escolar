@@ -41,7 +41,7 @@ const pageNames: Record<string, string> = {
   candidatos: "Mostrar candidatos",
   presencial: "Mesas · DNI",
   credenciales: "Credenciales",
-  media: "Fotografías",
+  media: "Fotografías y símbolos",
   resultados: "Resultados",
   actas: "Actas y documentos",
   votar: "Votación",
@@ -78,7 +78,7 @@ function PageTrail({ path }: { path: string }) {
       : (pageNames[path.split("/").at(-1) ?? ""] ?? "Panel electoral");
   return (
     <div className="page-trail">
-      <Link href={parent}>
+      <Link href={parent} className={match?.[2] ? "button secondary election-menu-back" : undefined}>
         <ArrowLeft size={18} aria-hidden="true" />
         {label}
       </Link>

@@ -185,3 +185,6 @@ Encabezados y ayudas consistentes, directorio del padrón con búsqueda y filtro
 
 
 Registro por pasos de candidato, partido, foto, símbolo y plana de regiduría, con numeración automática y una galería independiente: [guía de registro y activación](docs/REGISTRO-GUIADO-CANDIDATOS.md). Requiere aplicar manualmente la migración **010** después de **009**.
+
+
+Biblioteca privada con imágenes reutilizables, navegación mediante tarjetas, fondo verde claro y bienvenida/agradecimiento del votante: [guía de uso](docs/BIBLIOTECA-Y-EXPERIENCIA-VOTANTE.md). Esta actualización utiliza las migraciones existentes y no requiere SQL adicional.

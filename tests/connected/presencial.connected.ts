@@ -60,6 +60,8 @@ test("mesa exclusiva: habilitación, DNI, comprobación del comité, nombre, vot
     .getByRole("button", { name: "Habilitar equipo", exact: true })
     .click();
   await request.post(`${fixture}/__test/scenario`, { data: { state: "open" } });
+  await expect(booth.getByRole("heading", { name: "¡Bienvenido a tus elecciones escolares!" })).toBeVisible();
+  await booth.getByRole("button", { name: "Entrar a mis elecciones" }).click();
   await booth.getByLabel("DNI", { exact: true }).fill("00000001");
   await booth.getByRole("button", { name: "Solicitar mi turno" }).click();
   await expect(
@@ -114,9 +116,13 @@ test("mesa exclusiva: habilitación, DNI, comprobación del comité, nombre, vot
     booth.getByRole("heading", { name: "Participación registrada" }),
   ).toBeVisible();
   await expect(booth.getByText("Estudiante ficticio 001")).toHaveCount(0);
+  await expect(booth.getByRole("heading", { name: "¡Gracias por tu voto!" })).toBeVisible();
+  await booth.screenshot({ path: test.info().outputPath("gracias-voto.png"), fullPage: true });
   await booth
     .getByRole("button", { name: "Terminar y limpiar pantalla" })
     .click();
+  await expect(booth.getByRole("heading", { name: "¡Gracias por tu voto!" })).toHaveCount(0);
+  await booth.getByRole("button", { name: "Entrar a mis elecciones" }).click();
   await expect(booth.getByLabel("DNI", { exact: true })).toHaveValue("");
   const state = await (await request.get(`${fixture}/__test/state`)).json();
   expect(state.ballots).toBe(1);

@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { VoterWelcome } from "@/components/connected/voter-experience";
 import { CalendarDays, Users, Layers3, ShieldCheck } from "lucide-react";
 import { protectedElection } from "@/lib/connected/session";
 import { integrationConfig } from "@/lib/connected/env";
@@ -31,7 +32,7 @@ export default async function Page({
     if (!lists.error) listCount = listsSchema.parse(lists.data).length;
   }
   return (
-    <>
+    <VoterWelcome enabled={!staff}>
       <div className="page-heading">
         <div className="eyebrow">MI COMUNIDAD EDUCATIVA</div>
         <h1>{election.school}</h1>
@@ -127,6 +128,6 @@ export default async function Page({
           />
         </section>
       )}
-    </>
+    </VoterWelcome>
   );
 }

@@ -48,48 +48,35 @@ export async function registerSlateAction(
       return {
         error: "La elección debe estar en borrador para registrar candidatos.",
       };
-    const photo = form.get("photo"),
-      symbol = form.get("symbol");
-    for (const file of [photo, symbol])
-      if (!(file instanceof File) || !file.size || file.size > 3 * 1024 * 1024)
-        return {
-          error:
-            "Selecciona foto y símbolo en JPG, PNG o WebP de hasta 3 MB cada uno.",
-        };
-    if ((photo as File).size + (symbol as File).size > 4 * 1024 * 1024)
-      return {
-        error: "La foto y el símbolo juntos deben ocupar como máximo 4 MB.",
-      };
-    if (form.get("consent") !== "yes")
-      return {
-        error: "Confirma la autorización para utilizar ambas imágenes.",
-      };
+    const sources = [
+      { file: form.get("photo"), path: String(form.get("photoPath") ?? "") },
+      { file: form.get("symbol"), path: String(form.get("symbolPath") ?? "") },
+    ];
+    const uploadedSize = sources.reduce((total, source) => total + (source.file instanceof File ? source.file.size : 0), 0);
+    if (uploadedSize > 4 * 1024 * 1024) return { error: "La foto y el símbolo juntos deben ocupar como máximo 4 MB." };
+    if (form.get("consent") !== "yes") return { error: "Confirma la autorización para utilizar ambas imágenes." };
     stage = "images";
-    // Validate/sanitize BOTH files before the first Storage upload.
-    const images = await Promise.all(
-      [photo, symbol].map((file) =>
-        (file as File)
-          .arrayBuffer()
-          .then((bytes) =>
-            preparePrivateElectoralImage(new Uint8Array(bytes), id),
-          ),
-      ),
-    );
-    for (const image of images) {
-      const auth = await client.rpc("register_electoral_media", {
-        p_election: id,
-        p_path: image.path,
-        p_consent: true,
-      });
+    // Validate every source before writing any new Storage object.
+    const images = await Promise.all(sources.map(async ({ file, path }) => {
+      if (file instanceof File && file.size) {
+        if (file.size > 3 * 1024 * 1024) throw new Error();
+        return { image: await preparePrivateElectoralImage(new Uint8Array(await file.arrayBuffer()), id), path: "" };
+      }
+      if (!path.startsWith(`${id}/`) || !/^[A-Za-z0-9_-]+\.(jpg|jpeg|png|webp)$/.test(path.slice(id.length + 1))) throw new Error();
+      // Storage RLS checks this session and the existing authorized asset, never an admin key.
+      const stored = await client.storage.from("electoral-media").download(path);
+      if (stored.error || !stored.data || stored.data.size > 5 * 1024 * 1024) throw new Error();
+      return { image: null, path };
+    }));
+    const paths: string[] = [];
+    for (const source of images) {
+      if (!source.image) { paths.push(source.path); continue; }
+      const image = source.image;
+      const auth = await client.rpc("register_electoral_media", { p_election: id, p_path: image.path, p_consent: true });
       if (auth.error) throw new Error();
-      const upload = await client.storage
-        .from("electoral-media")
-        .upload(image.path, image.bytes, {
-          contentType: image.contentType,
-          cacheControl: "0",
-          upsert: false,
-        });
+      const upload = await client.storage.from("electoral-media").upload(image.path, image.bytes, { contentType: image.contentType, cacheControl: "0", upsert: false });
       if (upload.error) throw new Error();
+      paths.push(image.path);
     }
     stage = "save";
     const result = await client.rpc("register_electoral_slate", {
@@ -97,8 +84,8 @@ export async function registerSlateAction(
       p_request: input.request,
       p_party: input.party,
       p_proposals: input.proposals,
-      p_symbol: images[1].path,
-      p_mayor: { ...input.mayor, photo: images[0].path },
+      p_symbol: paths[1],
+      p_mayor: { ...input.mayor, photo: paths[0] },
       p_regidors: input.regidors,
     });
     if (result.error) {

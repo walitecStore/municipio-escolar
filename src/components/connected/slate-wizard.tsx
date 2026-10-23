@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { MediaLibrary } from "./media-library";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
@@ -24,11 +25,14 @@ function WizardImage({
   label,
   file,
   onChange,
+  election, savedPath, onSaved,
 }: {
+  election: string; savedPath: string; onSaved: (path: string) => void;
   label: string;
   file: File | null;
   onChange: (file: File | null) => void;
 }) {
+  const [mode, setMode] = useState(savedPath ? "library" : "device");
   const [preview, setPreview] = useState("");
   const [error, setError] = useState("");
   useEffect(() => {
@@ -39,15 +43,20 @@ function WizardImage({
   }, [file]);
   return (
     <div className="wizard-image-field">
+      <div className="image-source-buttons" role="group" aria-label={`Origen de ${label.toLowerCase()}`}>
+        <button type="button" className={`button ${mode === "device" ? "primary" : "secondary"}`} aria-pressed={mode === "device"} onClick={() => setMode("device")}>Subir desde mi equipo</button>
+        <button type="button" className={`button ${mode === "library" ? "primary" : "secondary"}`} aria-pressed={mode === "library"} onClick={() => setMode("library")}>Usar imagen guardada</button>
+      </div>
+      {mode === "library" && <MediaLibrary election={election} selected={savedPath} onSelect={path => { onSaved(path); onChange(null); }} />}
       <div className="wizard-image-preview">
-        {file && preview /* Local preview only. */ ? (
+        {savedPath || (file && preview) ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={preview} alt={`Vista previa de ${label.toLowerCase()}`} />
+          <img src={savedPath ? `/sistema/${election}/media/archivo?path=${encodeURIComponent(savedPath)}` : preview} alt={`Vista previa de ${label.toLowerCase()}`} />
         ) : (
           <ImagePlus size={46} aria-hidden="true" />
         )}
       </div>
-      <label>
+      {mode === "device" && <label>
         {label}
         <input
           type="file"
@@ -64,12 +73,13 @@ function WizardImage({
               return;
             }
             setError("");
+            onSaved("");
             onChange(next);
           }}
         />
-      </label>
+      </label>}
       <p>
-        {file
+        {savedPath ? "Imagen guardada seleccionada" : file
           ? `Seleccionado: ${file.name}`
           : "Puedes elegir un archivo desde tu celular o computadora."}{" "}
         JPG, PNG o WebP, máximo 3 MB.
@@ -136,6 +146,8 @@ export function SlateWizard({ election }: { election: string }) {
   const [proposals, setProposals] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
   const [symbol, setSymbol] = useState<File | null>(null);
+  const [photoPath, setPhotoPath] = useState("");
+  const [symbolPath, setSymbolPath] = useState("");
   const [consent, setConsent] = useState(false);
   const [regidors, setRegidors] = useState<Regidor[]>([emptyRegidor()]);
   const [index, setIndex] = useState(0);
@@ -183,7 +195,7 @@ export function SlateWizard({ election }: { election: string }) {
       );
       return;
     }
-    if (step === 2 && !photo) {
+    if (step === 2 && !photo && !photoPath) {
       setError("Selecciona la fotografía del candidato antes de continuar.");
       return;
     }
@@ -198,9 +210,9 @@ export function SlateWizard({ election }: { election: string }) {
       );
       return;
     }
-    if (step === 3 && (!symbol || !consent)) {
+    if (step === 3 && ((!symbol && !symbolPath) || !consent)) {
       setError(
-        !symbol
+        !symbol && !symbolPath
           ? "Selecciona el símbolo del partido."
           : "Confirma la autorización para utilizar las imágenes.",
       );
@@ -240,7 +252,7 @@ export function SlateWizard({ election }: { election: string }) {
         return;
       }
     }
-    if (!photo || !symbol || !consent) {
+    if ((!photo && !photoPath) || (!symbol && !symbolPath) || !consent) {
       setError("Revisa la foto, el símbolo y la autorización de imágenes.");
       return;
     }
@@ -262,8 +274,10 @@ export function SlateWizard({ election }: { election: string }) {
           regidors: complete,
         }),
       );
-      form.set("photo", photo);
-      form.set("symbol", symbol);
+      if (photo) form.set("photo", photo);
+      if (symbol) form.set("symbol", symbol);
+      form.set("photoPath", photoPath);
+      form.set("symbolPath", symbolPath);
       form.set("consent", "yes");
       const result = await registerSlateAction(election, form);
       if (result.id && result.number) {
@@ -315,6 +329,7 @@ export function SlateWizard({ election }: { election: string }) {
             setProposals("");
             setPhoto(null);
             setSymbol(null);
+            setPhotoPath(""); setSymbolPath("");
             setConsent(false);
             setRegidors([emptyRegidor()]);
             setIndex(0);
@@ -412,6 +427,7 @@ export function SlateWizard({ election }: { election: string }) {
           )}
           {step === 2 && (
             <WizardImage
+              election={election} savedPath={photoPath} onSaved={setPhotoPath}
               label="Foto del candidato"
               file={photo}
               onChange={setPhoto}
@@ -420,6 +436,7 @@ export function SlateWizard({ election }: { election: string }) {
           {step === 3 && (
             <>
               <WizardImage
+                election={election} savedPath={symbolPath} onSaved={setSymbolPath}
                 label="Símbolo del partido"
                 file={symbol}
                 onChange={setSymbol}

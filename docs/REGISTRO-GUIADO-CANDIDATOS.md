@@ -4,8 +4,8 @@ En el panel de la elección abre **Registrar candidato y plana de regiduría**.
 
 1. Escribe los nombres y apellidos del candidato a la alcaldía, su grado y sección.
 2. Ingresa el nombre del partido y al menos una propuesta.
-3. Sube la fotografía del candidato desde el celular o computadora.
-4. Sube el símbolo del partido y confirma la autorización para usar las imágenes.
+3. Elige una foto guardada en la biblioteca o súbela desde el celular o computadora.
+4. Elige o sube el símbolo del partido y confirma la autorización para usar las imágenes.
 5. Registra el nombre, grado, sección y cargo específico del primer regidor.
    **Siguiente regidor** permite agregar el segundo y continuar hasta veinte.
    **Terminar registro** guarda la inscripción con al menos un regidor completo.
@@ -20,7 +20,8 @@ partido y candidatos es una sola operación: si un dato no es válido, no se gua
 una inscripción incompleta. Un reintento del mismo envío no duplica el registro.
 
 Las imágenes admiten JPG, PNG y WebP: máximo 3 MiB por archivo y 4 MiB entre ambas.
-Se previsualizan antes de guardar. El servidor comprueba su contenido, elimina
+Se previsualizan antes de guardar. También puedes usar las imágenes existentes
+en la [biblioteca privada](BIBLIOTECA-Y-EXPERIENCIA-VOTANTE.md), sin subirlas otra vez. El servidor comprueba su contenido, elimina
 metadatos y las guarda en Storage privado con la sesión autorizada del personal.
 No se suben archivos al avanzar entre pasos. Si falla el guardado posterior a la
 subida, pueden quedar archivos privados sin vincular; no se borran datos como

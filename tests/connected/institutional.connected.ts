@@ -78,7 +78,7 @@ test("preparar borrador institucional sin habilitar voto oficial permite gestion
   ).toContainText("Importados 230 registros");
   await expect(
     page.getByRole("navigation", { name: "Navegación de la elección" }),
-  ).toContainText("Registrar candidato y plana de regiduría");
+  ).toHaveCount(0);
   await expect(
     page.getByRole("navigation", { name: "Navegación institucional" }),
   ).toContainText("Panel electoral");

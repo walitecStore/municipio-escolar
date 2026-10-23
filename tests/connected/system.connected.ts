@@ -166,14 +166,15 @@ test("subida saneada al Storage privado y respuesta de imagen sin caché públic
   await login(page);
   await page.goto(`/sistema/${id}/media`);
   await page
-    .getByLabel("Fotografía autorizada")
+    .getByLabel("Foto o símbolo desde mi equipo")
     .setInputFiles("public/candidatos/valeria.jpg");
   await page
-    .getByLabel("Confirmo que existe autorización documentada para este medio.")
+    .getByLabel("Tengo autorización institucional para usar esta imagen.")
     .check();
-  await page.getByRole("button", { name: "Guardar imagen autorizada" }).click();
-  await expect(page.getByRole("status")).toContainText("Imagen saneada");
-  const path = await page.locator("code").textContent();
+  await page.getByRole("button", { name: "Guardar en la biblioteca" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Imagen guardada" })).toBeVisible();
+  await expect(page.locator(".library-item img")).toHaveCount(1);
+  const path = new URL((await page.locator(".library-item img").getAttribute("src"))!, page.url()).searchParams.get("path");
   const image = await page.request.get(
     `/sistema/${id}/media/archivo?path=${encodeURIComponent(path!)}`,
   );
@@ -245,4 +246,25 @@ test("formularios conectan importación, corrección, listas y candidatos a RPC 
     "register_electoral_slate",
   ])
     expect(stats.calls[name]).toBe(1);
+});
+
+test("bienvenida exclusiva para votantes, menú sin pestañas y biblioteca denegada al elector", async ({page, request}) => {
+  await request.post(`${fixture}/__test/scenario`, {data:{state:"open"}});
+  await login(page, "student@example.test");
+  await page.goto(`/sistema/${id}`);
+  await expect(page.getByRole("heading", {name:"¡Bienvenido a tus elecciones escolares!"})).toBeVisible();
+  await expect.poll(() => page.locator(".voter-mascot img").evaluate((image:HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+  await expect(page.locator(".module-card")).toHaveCount(0);
+  for (const width of [1440,768,390,320]) {
+    await page.setViewportSize({width,height:900});
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  await page.screenshot({path:test.info().outputPath("bienvenida-votante-movil.png"),fullPage:true});
+  await page.setViewportSize({width:1440,height:1000});
+  await page.screenshot({path:test.info().outputPath("bienvenida-votante-pc.png"),fullPage:true});
+  await page.getByRole("button", {name:"Entrar a mis elecciones"}).click();
+  await expect(page.locator(".module-card")).toHaveCount(2);
+  await expect(page.locator(".election-tabs")).toHaveCount(0);
+  const library = await page.request.get(`/sistema/${id}/media/biblioteca`);
+  expect(library.status()).toBe(403);
 });

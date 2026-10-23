@@ -116,8 +116,8 @@ export function electionModules(
     },
     {
       key: "media",
-      title: "Fotografías",
-      description: "Gestiona imágenes privadas y autorizadas.",
+      title: "Fotografías y símbolos",
+      description: "Guarda y reutiliza fotos y símbolos de esta elección.",
       href: `${base}/media`,
       icon: "image",
       tone: "rose",

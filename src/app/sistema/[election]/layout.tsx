@@ -1,7 +1,4 @@
 import { protectedElection } from "@/lib/connected/session";
-import { isStaff } from "@/lib/connected/policy";
-import { electionModules } from "@/lib/election-navigation";
-import { ElectionNavigation } from "@/components/connected/election-navigation";
 import {
   CalendarDays,
   ShieldCheck,
@@ -16,7 +13,7 @@ export default async function Layout({
   params: Promise<{ election: string }>;
 }) {
   const id = (await params).election;
-  const { session, election } = await protectedElection(id);
+  const { election } = await protectedElection(id);
   const state =
     election.state === "draft"
       ? "Borrador"
@@ -51,10 +48,6 @@ export default async function Layout({
           </span>
         )}
       </div>
-      <ElectionNavigation
-        id={id}
-        modules={electionModules(election, isStaff(session))}
-      />
       {children}
     </>
   );

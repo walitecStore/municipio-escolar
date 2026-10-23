@@ -275,6 +275,14 @@ async function formImage(
   field: string,
   existing: string,
 ) {
+  const saved = String(form.get(`${field}Saved`) ?? "");
+  if (saved) {
+    const path = mediaPath(id, saved);
+    if (!path) throw new Error("Imagen no disponible");
+    const stored = await access.client.storage.from("electoral-media").download(path);
+    if (stored.error || !stored.data) throw new Error("Imagen no disponible");
+    return path;
+  }
   const file = form.get(field);
   if (!(file instanceof File) || file.size === 0)
     return mediaPath(id, existing);
@@ -610,9 +618,10 @@ export async function uploadMediaAction(
         error:
           "No se pudo subir el archivo. No se vinculó ninguna fotografía a una candidatura.",
       };
+    revalidatePath(`/sistema/${id}/media`);
     return {
       message:
-        "Imagen saneada y guardada en el bucket privado. Usa la ruta opaca en la lista o candidatura.",
+        "Imagen guardada en la biblioteca privada. Ya puedes elegirla al registrar candidatos.",
       mediaPath: image.path,
     };
   } catch {

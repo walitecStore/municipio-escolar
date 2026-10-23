@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { MediaLibrary } from "./media-library";
 import { ImagePlus, Upload } from "lucide-react";
 export function ElectoralImagePicker({
   field,
@@ -12,6 +13,8 @@ export function ElectoralImagePicker({
   current?: string | null;
   election: string;
 }) {
+  const [library, setLibrary] = useState(false);
+  const [savedPath, setSavedPath] = useState("");
   const input = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState("");
@@ -28,6 +31,7 @@ export function ElectoralImagePicker({
       queueMicrotask(() => {
         if (event.defaultPrevented) return;
         setFile(null);
+        setSavedPath("");
         setPreview("");
         setError("");
       });
@@ -36,12 +40,18 @@ export function ElectoralImagePicker({
     return () => form?.removeEventListener("reset", reset);
   }, []);
   const src =
-    preview ||
+    (savedPath ? `/sistema/${election}/media/archivo?path=${encodeURIComponent(savedPath)}` : "") || preview ||
     (current
       ? `/sistema/${election}/media/archivo?path=${encodeURIComponent(current)}`
       : "");
   return (
     <div className="image-picker">
+      <input type="hidden" name={`${field}Saved`} value={savedPath} />
+      <div className="image-source-buttons">
+        <button type="button" className={`button ${library ? "secondary" : "primary"}`} onClick={() => setLibrary(false)}>Subir desde mi equipo</button>
+        <button type="button" className={`button ${library ? "primary" : "secondary"}`} onClick={() => setLibrary(true)}>Usar imagen guardada</button>
+      </div>
+      {library && <MediaLibrary election={election} selected={savedPath} onSelect={path => { setSavedPath(path); setFile(null); setPreview(""); if (input.current) input.current.value = ""; }} />}
       <div className="image-picker-preview">
         {src /* Object URL or authenticated private image: never a public bucket URL. */ ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -51,7 +61,7 @@ export function ElectoralImagePicker({
         )}
       </div>
       <div className="image-picker-controls">
-        <label className="image-picker-label">
+        <label className="image-picker-label" hidden={library}>
           <Upload size={19} aria-hidden="true" />
           {label}
           <input
@@ -77,6 +87,7 @@ export function ElectoralImagePicker({
                 return;
               }
               setError("");
+              setSavedPath("");
               setFile(selected);
               setPreview(selected ? URL.createObjectURL(selected) : "");
             }}

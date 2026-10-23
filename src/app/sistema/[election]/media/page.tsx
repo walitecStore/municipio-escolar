@@ -3,7 +3,7 @@ import {
   WorkspaceNote,
 } from "@/components/connected/workspace-ui";
 import { protectedElection } from "@/lib/connected/session";
-import { ConnectedMediaUpload } from "@/components/connected/forms";
+import { MediaLibraryManager } from "@/components/connected/media-library";
 export default async function Page({
   params,
 }: {
@@ -20,16 +20,11 @@ export default async function Page({
         Guarda imágenes autorizadas de tu institución desde el celular o la
         computadora.
       </WorkspaceHeading>
-      <p>
-        Las imágenes se guardan de forma privada y se eliminan sus datos de
-        ubicación. Puedes cargar símbolos y fotos directamente al registrar
-        listas y candidatos.
-      </p>
-      <WorkspaceNote title="Para vincular una imagen a una candidatura">
-        Usa los campos de imagen en Registrar candidato y plana de regiduría: la
-        fotografía o el símbolo se asignan al guardar el registro.
+      <WorkspaceNote title="Tu biblioteca privada de imágenes">
+        Guarda fotos y símbolos aquí y selecciónalos al registrar candidatos con
+        Usar imagen guardada. También puedes subirlos directamente desde tu equipo.
       </WorkspaceNote>
-      <ConnectedMediaUpload election={election} />
+      <MediaLibraryManager election={election.id} editable={election.state === "draft"} />
     </section>
   );
 }

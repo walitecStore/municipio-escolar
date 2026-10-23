@@ -2,7 +2,7 @@ import { expect, type Page } from "@playwright/test";
 import sharp from "sharp";
 export async function fillSlateWizard(
   page: Page,
-  options: { candidate: string; party: string; regidors?: number },
+  options: { candidate: string; party: string; regidors?: number; savedImages?: boolean },
 ) {
   const wizard = page.locator(".slate-wizard");
   await wizard
@@ -23,19 +23,15 @@ export async function fillSlateWizard(
   })
     .png()
     .toBuffer();
-  await wizard.getByLabel("Foto del candidato", { exact: true }).setInputFiles({
-    name: "foto-ficticia.png",
-    mimeType: "image/png",
-    buffer,
-  });
+  if (options.savedImages) {
+    await wizard.getByRole("button", { name: "Usar imagen guardada", exact: true }).click();
+    await wizard.getByRole("button", { name: "Usar esta imagen", exact: true }).first().click();
+  } else await wizard.getByLabel("Foto del candidato", { exact: true }).setInputFiles({ name: "foto-ficticia.png", mimeType: "image/png", buffer });
   await wizard.getByRole("button", { name: "Siguiente", exact: true }).click();
-  await wizard
-    .getByLabel("Símbolo del partido", { exact: true })
-    .setInputFiles({
-      name: "simbolo-ficticio.png",
-      mimeType: "image/png",
-      buffer,
-    });
+  if (options.savedImages) {
+    await wizard.getByRole("button", { name: "Usar imagen guardada", exact: true }).click();
+    await wizard.getByRole("button", { name: "Usar esta imagen", exact: true }).first().click();
+  } else await wizard.getByLabel("Símbolo del partido", { exact: true }).setInputFiles({ name: "simbolo-ficticio.png", mimeType: "image/png", buffer });
   await wizard
     .getByRole("checkbox", {
       name: "Tengo autorización institucional para utilizar la foto y el símbolo.",

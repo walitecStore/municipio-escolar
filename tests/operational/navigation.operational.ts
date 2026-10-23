@@ -141,9 +141,8 @@ test("actas protegidas antes del cierre; PDF separado de resultados y acceso de 
   await expect(
     page.getByRole("button", { name: "Descargar acta del recuento" }),
   ).toHaveCount(0);
-  await page
-    .getByRole("link", { name: "Actas y documentos", exact: true })
-    .click();
+  await page.getByRole("link", { name: "Volver a la elección" }).click();
+  await page.locator(".module-card").filter({ hasText: "Actas y documentos" }).click();
   await expect(
     page.getByRole("heading", { name: "Actas y documentos" }),
   ).toBeVisible();
