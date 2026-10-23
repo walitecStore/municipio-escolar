@@ -5,13 +5,15 @@ import { mutationOrigin } from "@/lib/connected/session";
 import { supabaseServer } from "@/lib/connected/client";
 import {
   stationCookie,
+  stationPresentation,
   stationRpc,
   type StationState,
 } from "@/lib/connected/station";
+import type { BallotPresentation } from "@/lib/connected/presentation";
 export async function boothAction(
   _: StationState,
   form: FormData,
-): Promise<StationState> {
+): Promise<StationState & {presentation?:BallotPresentation}> {
   try {
     const config = await mutationOrigin();
     const { data } = await (await supabaseServer()).auth.getUser();
@@ -22,6 +24,7 @@ export async function boothAction(
           "Usa otro navegador o un perfil exclusivo para votar, sin sesión administrativa.",
       };
     const operation = String(form.get("operation") ?? "");
+    if (operation === "presentation") return {state:"ready",presentation:await stationPresentation()};
     if (operation === "connect") {
       const token = z
         .string()

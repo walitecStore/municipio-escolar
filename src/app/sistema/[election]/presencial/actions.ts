@@ -1,4 +1,5 @@
 "use server";
+import { preparePresentation } from "@/lib/connected/prepare-presentation";
 import { randomBytes, createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -13,7 +14,10 @@ export async function controlAction(
     await mutationOrigin();
     const { client, election } = await protectedElection(id, true);
     const op = String(form.get("operation"));
-    if (op === "configure") {
+    if (op === "prepare") {
+      await preparePresentation(client,id);
+      return {message:"Pantalla de votación actualizada con las fotos y símbolos registrados. La apertura de la elección se controla por separado."};
+    } else if (op === "configure") {
       if (election.state !== "draft" || form.get("confirm") !== "yes")
         throw new Error();
       const r = await client.rpc("configure_supervised_dni", {

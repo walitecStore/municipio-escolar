@@ -28,9 +28,8 @@ test("interfaz pública operativa no muestra demostraciones ni permite rutas ant
   await expect(page.locator("body")).not.toContainText(
     /demostración|datos ficticios|pruebas/i,
   );
-  await expect(
-    page.getByRole("button", { name: "Instalar aplicación" }),
-  ).toBeVisible();
+  await expect(page.getByRole("link")).toHaveCount(2);
+  await expect(page.getByRole("link", {name:/Ingresar si eres votante/})).toHaveAttribute("href","/sistema/mesa");
   for (const path of [
     "/demostracion",
     "/administracion",
@@ -45,7 +44,7 @@ test("interfaz pública operativa no muestra demostraciones ni permite rutas ant
   }
   const manifest = await (await request.get("/manifest.webmanifest")).json();
   expect(manifest.display).toBe("standalone");
-  expect(manifest.start_url).toBe("/sistema");
+  expect(manifest.start_url).toBe("/");
   expect(manifest.icons).toHaveLength(2);
   const worker = await (await request.get("/sw.js")).text();
   expect(worker).not.toMatch(

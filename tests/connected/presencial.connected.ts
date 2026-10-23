@@ -1,3 +1,4 @@
+import { fillSlateWizard } from "../fixtures/slate-ui";
 import { test, expect } from "@playwright/test";
 const fixture = "http://127.0.0.1:54329";
 const id = "10000000-0000-4000-8000-000000000001";
@@ -23,7 +24,20 @@ test("mesa exclusiva: habilitación, DNI, comprobación del comité, nombre, vot
   await expect(
     page.getByRole("heading", { name: "Panel electoral" }),
   ).toBeVisible();
+  await page.goto("/sistema/instituciones");
+  await page.getByLabel("Cargar logo o insignia del colegio").setInputFiles("public/icons/app-192.png");
+  await page.getByLabel("Tengo autorización para usar la insignia institucional.").check();
+  await page.getByRole("button", {name:"Guardar insignia",exact:true}).click();
+  await expect(page.getByRole("status").filter({hasText:"Insignia guardada"})).toBeVisible();
+  await page.reload();
+  await expect(page.getByAltText("Insignia de la institución")).toBeVisible();
+  await page.goto(`/sistema/${id}/listas`);
+  await fillSlateWizard(page,{candidate:"Candidato de cédula ficticio",party:"Partido de cédula ficticio",regidors:1});
+  await page.getByRole("button",{name:"Terminar registro",exact:true}).click();
+  await expect(page.getByRole("heading",{name:"Candidato y plana registrados"})).toBeVisible();
   await page.goto(`/sistema/${id}/presencial`);
+  await page.getByRole("button",{name:"Actualizar fotos y símbolos para votar"}).click();
+  await expect(page.getByRole("status").filter({hasText:"Pantalla de votación actualizada"})).toBeVisible();
   await page
     .getByLabel("Confirmo la modalidad presencial supervisada.", {
       exact: false,
@@ -60,8 +74,7 @@ test("mesa exclusiva: habilitación, DNI, comprobación del comité, nombre, vot
     .getByRole("button", { name: "Habilitar equipo", exact: true })
     .click();
   await request.post(`${fixture}/__test/scenario`, { data: { state: "open" } });
-  await expect(booth.getByRole("heading", { name: "¡Bienvenido a tus elecciones escolares!" })).toBeVisible();
-  await booth.getByRole("button", { name: "Entrar a mis elecciones" }).click();
+  await expect(booth.getByLabel("DNI", {exact:true})).toBeVisible();
   await booth.getByLabel("DNI", { exact: true }).fill("00000001");
   await booth.getByRole("button", { name: "Solicitar mi turno" }).click();
   await expect(
@@ -109,6 +122,10 @@ test("mesa exclusiva: habilitación, DNI, comprobación del comité, nombre, vot
   await expect(
     booth.getByRole("heading", { name: "Estudiante ficticio 001" }),
   ).toBeVisible();
+  await expect(booth.getByAltText("Insignia del colegio")).toBeVisible();
+  await expect(booth.getByAltText("Fotografía de Candidato de cédula ficticio")).toBeVisible();
+  await expect(booth.getByAltText("Símbolo de Partido de cédula ficticio")).toBeVisible();
+  await booth.screenshot({path:test.info().outputPath("cedula-con-insignia.png"),fullPage:true,animations:"disabled"});
   await booth.getByLabel("Voto en blanco", { exact: true }).check();
   await booth.getByLabel("Confirmo mi selección.", { exact: false }).check();
   await booth.getByRole("button", { name: "Confirmar y emitir voto" }).click();
@@ -122,7 +139,8 @@ test("mesa exclusiva: habilitación, DNI, comprobación del comité, nombre, vot
     .getByRole("button", { name: "Terminar y limpiar pantalla" })
     .click();
   await expect(booth.getByRole("heading", { name: "¡Gracias por tu voto!" })).toHaveCount(0);
-  await booth.getByRole("button", { name: "Entrar a mis elecciones" }).click();
+  await expect(booth).toHaveURL("http://127.0.0.1:3102/");
+  await booth.getByRole("link", {name:/Ingresar si eres votante/}).click();
   await expect(booth.getByLabel("DNI", { exact: true })).toHaveValue("");
   const state = await (await request.get(`${fixture}/__test/state`)).json();
   expect(state.ballots).toBe(1);

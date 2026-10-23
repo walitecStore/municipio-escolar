@@ -2053,3 +2053,31 @@ test("registro guiado: transacción completa, numeración automática, rollback 
   assert.equal(state.state, "draft");
   assert.equal(state.security_approved, false);
 });
+
+test("insignia y cédula visual: aislamiento, MFA y acceso solo con mesa vigente y elección abierta", async () => {
+  await pool.query(await readFile("supabase/migrations/202610230011_institution_branding_ballot.sql","utf8"));
+  const schools=await schoolFixture();
+  const logo="data:image/webp;base64,UklGRg==";
+  await session(schools.users[0],c=>c.query("select public.save_institution_branding($1,$2)",[schools.institutions[0],logo]));
+  assert.equal((await session(schools.users[0],c=>c.query("select public.get_institution_branding($1) value",[schools.institutions[0]]))).rows[0].value,logo);
+  await assert.rejects(session(schools.users[1],c=>c.query("select public.get_institution_branding($1)",[schools.institutions[0]])),/Acceso/);
+  await assert.rejects(session(schools.users[1],c=>c.query("select public.save_institution_branding($1,$2)",[schools.institutions[0],logo])),/Acceso/);
+  await assert.rejects(session(schools.users[0],async c=>{await c.query(`select set_config('request.jwt.claims','{"aal":"aal1"}',true)`);return c.query("select public.save_institution_branding($1,$2)",[schools.institutions[0],logo]);}),/Acceso/);
+  await assert.rejects(session(null,c=>c.query("select public.get_institution_branding($1)",[schools.institutions[0]]),"anon"),/permission/);
+  const f=await presencialFixture();
+  const school=(await pool.query("select institution_id from electoral_private.elections where id=$1",[f.election])).rows[0].institution_id;
+  await session(admin,c=>c.query("select public.save_institution_branding($1,$2)",[school,logo]));
+  const data=(await session(null,c=>c.query("select public.get_station_presentation($1) value",[f.tokens[0]]),"anon")).rows[0].value;
+  assert.equal(data.logo,logo);assert.equal(data.lists.length,3);
+  assert.ok(!JSON.stringify(data).includes("elector"));
+  assert.equal(data.lists[0].photo,null);
+  await assert.rejects(session(null,c=>c.query("select public.get_station_presentation($1)",["x".repeat(64)]),"anon"),/Mesa/);
+  await assert.rejects(session(admin,c=>c.query("select public.prepare_electoral_presentation($1,$2::jsonb)",[f.election,JSON.stringify({[`${f.election}/inventada.webp`]:logo})])),/autorizada/);
+  await session(admin,c=>c.query("select public.prepare_electoral_presentation($1,'{}'::jsonb)",[f.election]));
+  await pool.query("update electoral_private.voting_stations set active=false where id=$1",[f.stations[0]]);
+  await assert.rejects(session(null,c=>c.query("select public.get_station_presentation($1)",[f.tokens[0]]),"anon"),/Mesa/);
+  await pool.query("update electoral_private.voting_stations set expires_at=clock_timestamp()-interval '1 second' where id=$1",[f.stations[1]]);
+  await assert.rejects(session(null,c=>c.query("select public.get_station_presentation($1)",[f.tokens[1]]),"anon"),/Mesa/);
+  await assert.rejects(session(admin,c=>c.query("select * from electoral_private.institution_branding")),/permission/);
+  await assert.rejects(session(null,c=>c.query("select public.get_station_presentation($1)",[f.tokens[0]]),"service_role"),/permission/);
+});

@@ -22,7 +22,7 @@ test("integración sin configurar permanece cerrada y conserva la demostración"
   expect(image.status()).toBe(404);
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Elecciones del Municipio Escolar" }),
+    page.getByRole("heading", { name: "¡Bienvenido a tus elecciones escolares!" }),
   ).toBeVisible();
 });
 
@@ -31,11 +31,20 @@ test("portada institucional y demostración quedan separadas", async ({
 }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Instituciones independientes" }),
+    page.getByRole("heading", { name: "¡Bienvenido a tus elecciones escolares!" }),
   ).toBeVisible();
   await expect(page.locator("main")).not.toContainText("Estudiante ficticio");
+  await expect(page.getByRole("link")).toHaveCount(2);
+  for(const width of [320,390,768,1440]) {
+    await page.setViewportSize({width,height:1000});
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  }
+  await page.screenshot({path:test.info().outputPath("entrada-azul-pc.png"),fullPage:true,animations:"disabled"});
+  await page.setViewportSize({width:390,height:844});
+  await page.screenshot({path:test.info().outputPath("entrada-azul-movil.png"),fullPage:true,animations:"disabled"});
+
   await page
-    .getByRole("link", { name: "Ingresar al sistema", exact: true })
+    .getByRole("link", { name: /Ingresar si eres organizador/ })
     .click();
   await expect(
     page.getByRole("heading", {

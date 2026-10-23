@@ -99,6 +99,7 @@ export function Shell({
   showDemonstrations?: boolean;
 }) {
   const path = usePathname();
+  useEffect(() => { if ("serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js", {scope:"/",updateViaCache:"none"}).catch(()=>{}); }, []);
   const [more, setMore] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
   const demo = demoLinks.some(([href]) => href === path);
@@ -114,6 +115,7 @@ export function Shell({
     window.addEventListener("keydown", escape);
     return () => window.removeEventListener("keydown", escape);
   }, [more]);
+  if (path === "/") return <div className="entry-shell"><main id="contenido">{children}</main></div>;
   return (
     <div className={`app-shell${booth ? " booth-shell" : ""}`}>
       <a className="skip" href="#contenido">

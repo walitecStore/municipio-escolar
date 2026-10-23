@@ -11,7 +11,7 @@ export function StationControlForm({
 }: {
   id: string;
   operation: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }) {
   const [state, action, busy] = useActionState(
     controlAction.bind(null, id),
@@ -22,7 +22,7 @@ export function StationControlForm({
       <input type="hidden" name="operation" value={operation} />
       {children}
       <button disabled={busy} className="button primary">
-        {operation === "approve"
+        {operation === "prepare" ? "Actualizar fotos y símbolos para votar" : operation === "approve"
           ? "Autorizar turno"
           : operation === "cancel"
             ? "Cancelar turno"

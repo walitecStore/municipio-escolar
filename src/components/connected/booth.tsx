@@ -1,6 +1,10 @@
+/* eslint-disable @next/next/no-location-assign-relative-destination -- Hard navigation discards voter UI memory after confirmed cleanup. */
+/* eslint-disable @next/next/no-img-element -- Small sanitized inline WebP thumbnails. */
 "use client";
+import type { BallotPresentation } from "@/lib/connected/presentation";
+import { UserRound, Vote } from "lucide-react";
 import { useActionState, useState, useEffect } from "react";
-import { VoterWelcome, VoterThanks } from "./voter-experience";
+import { VoterThanks } from "./voter-experience";
 import { boothAction } from "@/app/sistema/mesa/actions";
 import type { StationState } from "@/lib/connected/station";
 export function Booth({ configured }: { configured: boolean }) {
@@ -10,10 +14,25 @@ export function Booth({ configured }: { configured: boolean }) {
   const [connected, setConnected] = useState(configured);
   const [connectionError, setConnectionError] = useState("");
   const [connecting, setConnecting] = useState(false);
-  const [round, setRound] = useState(0);
+  const [presentation,setPresentation] = useState<BallotPresentation | null>(null);
+  const [presentationError,setPresentationError] = useState("");
+  const [finishing,setFinishing] = useState(false);
+  const [finishError,setFinishError] = useState("");
   const [choice, setChoice] = useState("");
   const [expiredState, setExpiredState] = useState<StationState | null>(null);
   const expired = expiredState === state;
+  useEffect(()=>{
+    if(!connected) return;
+    let cancelled=false;
+    const form=new FormData();form.set("operation","presentation");
+    void boothAction({state:"ready"},form).then(result=>{
+      if(cancelled)return;
+      setPresentation(result.presentation??null);
+      setPresentationError(result.presentation?"":"Las imágenes estarán disponibles cuando el comité abra la elección y actualice su pantalla de votación.");
+    }).catch(()=>{if(!cancelled)setPresentationError("No se pudieron cargar las imágenes. Consulta al comité.");});
+    return ()=>{cancelled=true;};
+  },[connected,state.state]);
+
   useEffect(() => {
     if (state.state !== "authorized") return;
     const timeout = setTimeout(() => {
@@ -61,8 +80,10 @@ export function Booth({ configured }: { configured: boolean }) {
           </button>
         </form>
       ) : (
-        <VoterWelcome key={round}>
-          <button
+        <>
+          {presentation && <header className="ballot-school-heading">{presentation.logo && <img src={presentation.logo} alt="Insignia del colegio" />}<div><span>ELECCIONES DEL MUNICIPIO ESCOLAR</span><h2>{presentation.school}</h2></div></header>}
+          {presentationError && <p className="notice">{presentationError}</p>}
+          <details className="booth-organizer-tools"><summary>Habilitación del equipo · solo comité</summary><button
             className="button secondary"
             onClick={() => {
               setConnected(false);
@@ -70,7 +91,7 @@ export function Booth({ configured }: { configured: boolean }) {
             }}
           >
             Cambiar habilitación del equipo (solo comité)
-          </button>
+          </button></details>
           <p>
             El comité verificará tu identidad presencialmente antes de mostrar
             tu nombre y la papeleta.
@@ -116,19 +137,14 @@ export function Booth({ configured }: { configured: boolean }) {
               <h2>{state.name}</h2>
               <p>Si este no es tu nombre, avisa al comité y no votes.</p>
               <input type="hidden" name="operation" value="cast" />
-              {state.lists?.map((l) => (
-                <label key={l.id} className="blank-vote">
-                  <input
-                    type="radio"
-                    name="choice"
-                    value={l.id}
-                    checked={choice === l.id}
-                    onChange={() => setChoice(l.id)}
-                    required
-                  />
-                  {l.number}. {l.name} · Alcaldía: {l.mayor}
-                </label>
-              ))}
+              <div className="ballot-voting-grid">{state.lists?.map((l) => {
+                const visual=presentation?.lists.find(item=>item.id===l.id);
+                return <label key={l.id} className={`ballot-voting-card ${choice===l.id?"selected":""}`}>
+                  <input type="radio" name="choice" value={l.id} checked={choice===l.id} onChange={()=>setChoice(l.id)} required />
+                  <span className="ballot-voting-photo">{visual?.photo ? <img src={visual.photo} alt={`Fotografía de ${l.mayor??l.name}`}/>:<UserRound size={64}/>}<span className="ballot-party-symbol">{visual?.symbol ? <img src={visual.symbol} alt={`Símbolo de ${l.name}`}/>:<Vote size={28}/>}</span></span>
+                  <span className="ballot-number">N.º {l.number}</span><strong>{l.name}</strong><span>{l.mayor??"Candidatura escolar"}</span>
+                </label>;
+              })}</div>
               <label className="blank-vote">
                 <input
                   type="radio"
@@ -168,9 +184,17 @@ export function Booth({ configured }: { configured: boolean }) {
               <p>
                 No se muestra tu selección para proteger el secreto del voto.
               </p>
-              <form action={async form => { action(form); setRound(n => n + 1); }}>
+              <form action={async form => {
+                setFinishing(true);setFinishError("");
+                try {
+                  const result=await boothAction(state,form);
+                  if(!result.error && result.state==="ready") window.location.assign("/");
+                  else setFinishError(result.error??"No se pudo limpiar la pantalla. Comprueba el estado antes de continuar.");
+                } catch {setFinishError("No se pudo confirmar la limpieza. Vuelve a comprobar el estado.");}
+                finally {setFinishing(false);}
+              }}>
                 <input type="hidden" name="operation" value="finish" />
-                <button disabled={busy} className="button primary">
+                <button disabled={busy || finishing} className="button primary">
                   Terminar y limpiar pantalla
                 </button>
               </form>
@@ -187,9 +211,10 @@ export function Booth({ configured }: { configured: boolean }) {
               Comprobar estado / autorización
             </button>
           </form>
-        </VoterWelcome>
+        </>
       )}
       {state.error && <p role="alert">{state.error}</p>}
+      {finishError && <p role="alert">{finishError}</p>}
     </section>
   );
 }

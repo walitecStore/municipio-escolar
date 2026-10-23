@@ -61,6 +61,8 @@ let participation = false;
 let ballots: (string | null)[] = [];
 let media = new Map<string, Buffer>();
 let mediaAuthorization = new Set<string>();
+const institutionBadges = new Map<string,string>();
+let ballotPreviews: Record<string,string> = {};
 let rejectUsers = false;
 const factors = new Map<string, string>();
 const passwordHash = (value: string) =>
@@ -260,6 +262,7 @@ const server = http.createServer(async (req, res) => {
       slateLost = false;
       supervisedDni = false;
       station = null;
+      institutionBadges.clear(); ballotPreviews={};
       turn = null;
       institutionProfiles = [
         {
@@ -513,6 +516,11 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(204);
       return res.end();
     }
+    if(url.pathname === "/rest/v1/rpc/get_station_presentation") {
+      const args=JSON.parse((await body(req)).toString());
+      if(!station?.active || station.hash!==createHash("sha256").update(String(args.p_token)).digest("hex") || phase!=="open") return send({message:"Denied"},403);
+      return send({school:institutionProfiles[0].name,purpose,logo:institutionBadges.get(baseInstitution)??null,lists:lists.map(list=>{const mayor=list.candidates.find(c=>c.role==="alcalde");return {id:list.id,name:list.name,number:list.number,mayor:mayor?.name??null,photo:ballotPreviews[mayor?.photo_path??""]??null,symbol:ballotPreviews[list.symbol_path??""]??null};})});
+    }
     if (url.pathname === "/rest/v1/rpc/station_electoral_operation") {
       calls.station_electoral_operation =
         (calls.station_electoral_operation ?? 0) + 1;
@@ -543,14 +551,7 @@ const server = http.createServer(async (req, res) => {
         ...(turn?.state === "authorized"
           ? {
               name: "Estudiante ficticio 001",
-              lists: [
-                {
-                  id: listId,
-                  number: 1,
-                  name: lists[0].name,
-                  mayor: "Candidato ficticio",
-                },
-              ],
+              lists: lists.map(list=>({id:list.id,number:list.number,name:list.name,mayor:list.candidates.find(c=>c.role==="alcalde")?.name??null})),
             }
           : {}),
       });
@@ -621,6 +622,9 @@ const server = http.createServer(async (req, res) => {
         return send(null);
       }
       if (!staff(c)) return send({ code: "P0001", message: "Denied" }, 403);
+      if(name === "get_institution_branding") return send(institutionBadges.get(args.p_institution)??null);
+      if(name === "save_institution_branding") { if(role(c)!=="administrator")return send({message:"Denied"},403);institutionBadges.set(args.p_institution,args.p_logo);return send(null); }
+      if(name === "prepare_electoral_presentation") {ballotPreviews={...ballotPreviews,...args.p_images};return send(null);}
       if (name === "list_my_institutions")
         return send({
           platform_operator: c.email === "admin@example.test",

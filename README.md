@@ -188,3 +188,6 @@ Registro por pasos de candidato, partido, foto, símbolo y plana de regiduría, 
 
 
 Biblioteca privada con imágenes reutilizables, navegación mediante tarjetas, fondo verde claro y bienvenida/agradecimiento del votante: [guía de uso](docs/BIBLIOTECA-Y-EXPERIENCIA-VOTANTE.md). Esta actualización utiliza las migraciones existentes y no requiere SQL adicional.
+
+
+Portada con accesos separados, insignia institucional y botón **Pasar a votación** con cédula visual: [guía de activación y uso](docs/ENTRADAS-INSIGNIA-Y-VOTACION.md). Requiere aplicar manualmente solo la migración **011** después de **010**.

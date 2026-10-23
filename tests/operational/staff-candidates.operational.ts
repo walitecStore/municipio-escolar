@@ -289,14 +289,10 @@ test("galería presenta seis candidatos en dos filas y cuatro en dos columnas; n
   await page.goto(`/sistema/${id}/candidatos`);
   const cards = page.locator(".candidate-display-card");
   await expect(cards).toHaveCount(6);
-  const bounds = await cards.evaluateAll((nodes) =>
-    nodes.map((n) => {
-      const r = n.getBoundingClientRect();
-      return { top: r.top, left: r.left };
-    }),
-  );
-  expect(new Set(bounds.map((r) => r.top)).size).toBe(2);
-  expect(new Set(bounds.map((r) => r.left)).size).toBe(3);
+  await expect.poll(async () => {
+    const bounds = await cards.evaluateAll(nodes => nodes.map(node => { const rect=node.getBoundingClientRect();return {top:rect.top,left:rect.left}; }));
+    return [new Set(bounds.map(rect=>rect.top)).size,new Set(bounds.map(rect=>rect.left)).size];
+  }).toEqual([2,3]);
   await page.screenshot({
     path: test.info().outputPath("galeria-seis-pc.png"),
     fullPage: true,

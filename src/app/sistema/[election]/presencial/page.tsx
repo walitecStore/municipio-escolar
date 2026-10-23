@@ -3,6 +3,9 @@ import {
   WorkspaceMetric,
   WorkspaceNote,
 } from "@/components/connected/workspace-ui";
+import { ConnectedElectionState } from "@/components/connected/forms";
+import { integrationConfig } from "@/lib/connected/env";
+import { openingAllowed } from "@/lib/connected/policy";
 import Link from "next/link";
 import { z } from "zod";
 import { protectedElection } from "@/lib/connected/session";
@@ -49,6 +52,7 @@ export default async function Page({
         Organiza las computadoras de votación y autoriza a cada estudiante
         después de comprobar su identidad.
       </WorkspaceHeading>
+      <section id="pasar-a-votacion" className="voting-launch-steps"><h2>Pasar a votación</h2><ol><li>Completa el padrón, los candidatos y la insignia del colegio.</li><li>Actualiza las fotos y símbolos y revisa la apertura de la elección.</li><li>Habilita cada computadora y abre Ingresar si eres votante en un navegador sin sesión del organizador.</li></ol><StationControlForm id={id} operation="prepare" /> <ConnectedElectionState election={election} canOpen={!!integrationConfig() && openingAllowed(integrationConfig()!,election)} /><Link href="/sistema/mesa" className="button primary">Abrir pantalla para votantes</Link><p>Esta pantalla necesita la habilitación de la computadora. En el equipo del organizador usa un perfil de navegador separado para el votante.</p></section>
       <p>
         Carga primero un padrón con DNI de ocho dígitos. El comité verifica
         físicamente cada identidad; el estudiante no necesita cuenta ni

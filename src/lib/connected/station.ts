@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { z } from "zod";
+import { presentationSchema } from "./presentation";
 import { integrationConfig } from "./env";
 export const stationCookie = "electoral-station";
 export const stationStateSchema = z.object({
@@ -71,4 +72,17 @@ export async function stationRpc(
   )
     throw new Error("Votación oficial deshabilitada.");
   return stationStateSchema.parse(data);
+}
+
+export async function stationPresentation() {
+ const config=integrationConfig();
+ if(!config || !config.voting || process.env.ELECTORAL_SUPERVISED_DNI_ENABLED!=="true") throw new Error();
+ const token=(await cookies()).get(stationCookie)?.value;
+ if(!token || !/^[A-Za-z0-9_-]{64}$/.test(token)) throw new Error();
+ const client=createClient(config.url,config.key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
+ const result=await client.rpc("get_station_presentation",{p_token:token});
+ if(result.error) throw new Error();
+ const data=presentationSchema.parse(result.data);
+ if(data.purpose==="official"&&!config.official) throw new Error();
+ return data;
 }

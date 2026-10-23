@@ -1,3 +1,4 @@
+import { InstallApp } from "@/components/install-app";
 import {
   CircleHelp,
   ClipboardCheck,
@@ -65,6 +66,7 @@ export default function Help() {
         institucional o al operador de la plataforma. No compartas contraseñas,
         códigos MFA ni habilitaciones de mesa.
       </section>
+      <section className="panel section"><h2>Instalar en tu dispositivo</h2><InstallApp /></section>
     </>
   );
 }

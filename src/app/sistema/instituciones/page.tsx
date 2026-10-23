@@ -1,3 +1,5 @@
+import { InstitutionBadge } from "@/components/connected/institution-badge";
+import { badgeSchema } from "@/lib/connected/presentation";
 import { WorkspaceHeading } from "@/components/connected/workspace-ui";
 import { redirect } from "next/navigation";
 import { verifiedSession } from "@/lib/connected/session";
@@ -55,6 +57,7 @@ export default async function Page() {
       if (!team.error && parsedTeam.success) teams.set(i.id, parsedTeam.data);
     }
   }
+  const badges = new Map(await Promise.all(data.institutions.map(async i => { const result = await client.rpc("get_institution_branding", {p_institution:i.id}); return [i.id, {available:!result.error,logo:badgeSchema.nullable().safeParse(result.data).success ? result.data as string | null : null}] as const; })));
   return (
     <section className="panel">
       <WorkspaceHeading
@@ -99,6 +102,7 @@ export default async function Page() {
               />
             </label>
           </InstitutionForm>
+          <InstitutionBadge institution={i.id} initial={badges.get(i.id)?.logo ?? null} editable={session.role === "administrator"} available={!!badges.get(i.id)?.available} />
           {session.role === "administrator" && (
             <section className="section team-section">
               <h3>Tu equipo autorizado</h3>

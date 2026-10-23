@@ -5,10 +5,10 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "Municipio Escolar",
     description: "Acceso institucional a elecciones escolares",
     id: "/",
-    start_url: "/sistema",
+    start_url: "/",
     scope: "/",
     display: "standalone",
-    background_color: "#f5f8fc",
+    background_color: "#1553bd",
     theme_color: "#17375e",
     lang: "es-PE",
     icons: [

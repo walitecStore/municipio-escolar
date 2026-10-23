@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Image from "next/image";
 import { VoterWelcome } from "@/components/connected/voter-experience";
 import { CalendarDays, Users, Layers3, ShieldCheck } from "lucide-react";
@@ -60,6 +61,7 @@ export default async function Page({
           priority
         />
       </section>
+      {staff && <Link href={`/sistema/${election.id}/presencial#pasar-a-votacion`} className="launch-voting"><strong>Pasar a votación →</strong><span>Revisa la apertura y prepara las computadoras de los votantes.</span></Link>}
       <section
         className="election-facts"
         aria-label="Información de la elección"
