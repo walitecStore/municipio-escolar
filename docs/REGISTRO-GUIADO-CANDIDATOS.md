@@ -37,8 +37,8 @@ dos columnas y dos filas. En tableta se muestran dos columnas y en celulares
 estrechos una. Se muestran únicamente las inscripciones guardadas. Si un registro
 anterior no tiene foto o símbolo, se indica sin inventar una imagen.
 
-**Corregir registros existentes**, dentro del registro, conserva las herramientas
-de edición del partido y sus integrantes. La edición sigue limitada al borrador.
+**Corregir registros existentes**, dentro del registro, permite editar al candidato
+y a sus regidores, o agregar regidores. La edición sigue limitada al borrador.
 
 ## Activación en Supabase y Vercel
 

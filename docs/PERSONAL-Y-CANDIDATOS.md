@@ -8,8 +8,8 @@ de los integrantes se asignan automáticamente. Consulta la
 [guía del registro guiado y la galería](REGISTRO-GUIADO-CANDIDATOS.md).
 
 Este flujo requiere aplicar manualmente la migración **010** después de **009**.
-La sección **Corregir registros existentes** conserva la edición de inscripciones
-anteriores. Solo se permite modificar candidaturas en borrador.
+La sección **Corregir registros existentes** permite editar al candidato y los regidores de inscripciones
+anteriores, y agregar regidores. Solo se permite modificar candidaturas en borrador.
 
 ## Invitar al equipo sin UUID
 

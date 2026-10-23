@@ -7,7 +7,6 @@ import {
 } from "@/components/connected/workspace-ui";
 import { SlateWizard } from "@/components/connected/slate-wizard";
 import {
-  ConnectedListEditor,
   ConnectedCandidateEditor,
 } from "@/components/connected/forms";
 export default async function Page({
@@ -57,19 +56,11 @@ export default async function Page({
         <details className="panel section existing-candidate-management">
           <summary>Corregir registros existentes</summary>
           <p>
-            Usa estas opciones para corregir los datos de una inscripción que ya
-            se guardó.
+            Edita al candidato a la alcaldía o a sus regidores, o agrega un
+            regidor a una candidatura ya registrada.
           </p>
-          <section id="editar-partido">
-            <h2>Corregir partido y símbolo</h2>
-            <ConnectedListEditor
-              election={election}
-              lists={lists}
-              existingOnly
-            />
-          </section>
           <section id="registrar-candidato">
-            <h2>Corregir o agregar integrantes</h2>
+            <h2>Editar candidato y regidores</h2>
             <ConnectedCandidateEditor election={election} lists={lists} />
           </section>
         </details>

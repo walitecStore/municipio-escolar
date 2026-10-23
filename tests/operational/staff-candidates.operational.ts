@@ -189,7 +189,7 @@ test("asistente completo: atrás conserva los datos, no guarda antes de terminar
   });
 });
 
-test("registro con alcalde o regidor sin números; conserva datos y archivo tras un rechazo", async ({
+test("correcciones solo editan candidatos y agregan regidores; conservan datos tras un rechazo", async ({
   page,
   request,
 }) => {
@@ -199,18 +199,16 @@ test("registro con alcalde o regidor sin números; conserva datos y archivo tras
     .getByText("Corregir registros existentes", { exact: true })
     .click();
   const form = page.locator("#registrar-candidato");
-  await expect(
-    form.getByRole("radio", { name: /Registrar regidor/ }),
-  ).toBeChecked();
-  await expect(
-    form.getByRole("radio", { name: /Registrar alcalde/ }),
-  ).toBeDisabled();
+  await expect(page.locator("#editar-partido")).toHaveCount(0);
+  await expect(form.getByRole("radio")).toHaveCount(0);
+  await expect(form.locator('input[name="role"]')).toHaveValue("regidor");
+  await expect(form.getByRole("button", { name: "Eliminar candidatura" })).toHaveCount(0);
   await expect(form.locator('input[name="position"]')).toHaveCount(0);
   await form
     .getByLabel("Nombres y apellidos del candidato")
     .fill("Regidor ficticio uno");
   await form
-    .getByRole("button", { name: "Registrar candidato", exact: true })
+    .getByRole("button", { name: "Agregar regidor", exact: true })
     .click();
   await expect(page.locator("main")).toContainText(
     "Regidor ficticio uno · Regiduría escolar",
@@ -227,7 +225,7 @@ test("registro con alcalde o regidor sin números; conserva datos y archivo tras
     });
   await form.getByRole("checkbox").check();
   await form
-    .getByRole("button", { name: "Registrar candidato", exact: true })
+    .getByRole("button", { name: "Agregar regidor", exact: true })
     .click();
   await expect(form.getByRole("alert")).toContainText(
     "No se pudo guardar la fotografía",
@@ -256,7 +254,7 @@ test("registro con alcalde o regidor sin números; conserva datos y archivo tras
       buffer: image,
     });
   await form
-    .getByRole("button", { name: "Registrar candidato", exact: true })
+    .getByRole("button", { name: "Agregar regidor", exact: true })
     .click();
   await expect(page.locator("main")).toContainText(
     "Regidor ficticio dos · Regiduría escolar",
@@ -264,6 +262,19 @@ test("registro con alcalde o regidor sin números; conserva datos y archivo tras
   stats = await (await request.get(`${fixture}/__test/state`)).json();
   expect(stats.calls.manage_electoral_candidate).toBe(2);
   expect(stats.calls.register_electoral_media).toBe(1);
+  const registered = form.locator("select").first();
+  const mayorId = await registered.locator("option").nth(1).getAttribute("value");
+  await registered.selectOption(mayorId!);
+  await expect(form.locator('input[name="role"]')).toHaveValue("alcalde");
+  await expect(form.getByLabel("Candidatura a la alcaldía")).toBeDisabled();
+  await form.getByLabel("Nombres y apellidos del candidato").fill("Alcalde ficticio corregido");
+  await form.getByRole("button", { name: "Guardar cambios", exact: true }).click();
+  await expect(registered).toContainText("Alcalde ficticio corregido");
+  await registered.selectOption({ label: "Regidor ficticio uno · Regiduría escolar" });
+  await expect(form.locator('input[name="role"]')).toHaveValue("regidor");
+  await form.getByLabel("Nombre del cargo").fill("Regidor de educación");
+  await form.getByRole("button", { name: "Guardar cambios", exact: true }).click();
+  await expect(registered).toContainText("Regidor ficticio uno · Regidor de educación");
 });
 
 test("galería presenta seis candidatos en dos filas y cuatro en dos columnas; no ofrece un asistente sin migración", async ({

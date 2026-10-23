@@ -20,7 +20,6 @@ import {
   voteStatusAction,
   type OperationState,
 } from "@/app/sistema/actions";
-import { suggestCandidateSlot } from "@/lib/connected/candidate-registration";
 import { ElectoralImagePicker } from "./image-picker";
 import type { ConnectedElection } from "@/lib/connected/policy";
 import type { ConnectedElector, ConnectedList } from "@/lib/connected/data";
@@ -470,16 +469,8 @@ function CandidateRegistrationFields({
   candidate?: ConnectedList["candidates"][number] & { list: string };
 }) {
   const [listId, setListId] = useState(candidate?.list ?? lists[0]?.id ?? "");
-  const list = lists.find((l) => l.id === listId);
-  const initial = suggestCandidateSlot(list, candidate?.id);
-  const [role, setRole] = useState(candidate?.role ?? initial.role);
-  const [title, setTitle] = useState(
-    candidate?.title ??
-      (initial.role === "alcalde" ? "Alcaldía escolar" : "Regiduría escolar"),
-  );
-  const mayorExists = list?.candidates.some(
-    (c) => c.role === "alcalde" && c.id !== candidate?.id,
-  );
+  const role = candidate?.role ?? "regidor";
+  const [title, setTitle] = useState(candidate?.title ?? "Regiduría escolar");
   return (
     <>
       <label>
@@ -492,81 +483,32 @@ function CandidateRegistrationFields({
         />
       </label>
       <label>
-        Lista o partido al que pertenece
+        {candidate ? "Candidatura registrada" : "Candidato al que pertenece el regidor"}
         <select
-          aria-label="Lista de la candidatura"
+          aria-label="Candidatura a la alcaldía"
           name="list"
           required
           value={listId}
-          onChange={(e) => {
-            const next = lists.find((l) => l.id === e.target.value);
-            const suggested = suggestCandidateSlot(next, candidate?.id);
-            setListId(e.target.value);
-            setRole(suggested.role);
-            setTitle(
-              suggested.role === "alcalde"
-                ? "Alcaldía escolar"
-                : "Regiduría escolar",
-            );
-          }}
+          disabled={!!candidate}
+          onChange={(e) => setListId(e.target.value)}
         >
           {lists.map((l) => (
             <option key={l.id} value={l.id}>
-              {l.name}
+              {l.candidates.find((c) => c.role === "alcalde")?.name ??
+                "Candidatura registrada"} · {l.name}
             </option>
           ))}
         </select>
+        {candidate && <input type="hidden" name="list" value={listId} />}
       </label>
-      {mayorExists && (
-        <p className="notice">
-          Esta lista ya tiene alcalde. Puedes registrar sus regidores; para
-          cambiar los datos del alcalde, selecciónalo en Candidatura.
-        </p>
-      )}
-      <fieldset className="candidate-role-picker">
-        <legend>¿Qué deseas registrar?</legend>
-        <label
-          className={`candidate-role-option ${role === "alcalde" ? "selected" : ""} ${mayorExists ? "unavailable" : ""}`}
-        >
-          <input
-            type="radio"
-            name="role"
-            value="alcalde"
-            checked={role === "alcalde"}
-            disabled={mayorExists}
-            onChange={() => {
-              setRole("alcalde");
-              setTitle("Alcaldía escolar");
-            }}
-          />
-          <span>
-            <strong>Registrar alcalde</strong>
-            <small>
-              {mayorExists
-                ? "Esta lista ya tiene alcalde"
-                : "Representante principal de la lista"}
-            </small>
-          </span>
-        </label>
-        <label
-          className={`candidate-role-option ${role === "regidor" ? "selected" : ""}`}
-        >
-          <input
-            type="radio"
-            name="role"
-            value="regidor"
-            checked={role === "regidor"}
-            onChange={() => {
-              setRole("regidor");
-              setTitle("Regiduría escolar");
-            }}
-          />
-          <span>
-            <strong>Registrar regidor</strong>
-            <small>Integrante del equipo del municipio escolar</small>
-          </span>
-        </label>
-      </fieldset>
+      <input type="hidden" name="role" value={role} />
+      <p className="notice">
+        {candidate
+          ? role === "alcalde"
+            ? "Editando candidato a la alcaldía"
+            : "Editando regidor"
+          : "Agrega un regidor a la candidatura seleccionada. Su orden se asigna automáticamente."}
+      </p>
       <label>
         Nombre del cargo
         <input
@@ -615,7 +557,7 @@ export function ConnectedCandidateEditor({
       <label>
         Candidatura
         <select value={id} onChange={(e) => setId(e.target.value)}>
-          <option value="">Registrar nuevo candidato</option>
+          <option value="">Agregar regidor</option>
           {candidates.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name} · {c.title}
@@ -627,9 +569,7 @@ export function ConnectedCandidateEditor({
         key={id}
         operation={saveCandidateAction.bind(null, election.id)}
         preserveOnError
-        label={
-          candidate ? "Guardar cambios del candidato" : "Registrar candidato"
-        }
+        label={candidate ? "Guardar cambios" : "Agregar regidor"}
         disabled={election.state !== "draft" || !lists.length}
       >
         <input name="id" type="hidden" value={id} />
@@ -650,31 +590,6 @@ export function ConnectedCandidateEditor({
           election={election.id}
         />
       </OperationForm>
-      {candidate && (
-        <OperationForm
-          operation={saveCandidateAction.bind(null, election.id)}
-          label="Eliminar candidatura"
-          disabled={election.state !== "draft"}
-        >
-          {Object.entries({
-            id: candidate.id,
-            list: candidate.list,
-            name: candidate.name,
-            role: candidate.role,
-            position: String(candidate.position),
-            title: candidate.title,
-            grade: String(candidate.grade),
-            section: candidate.section,
-            delete: "yes",
-          }).map(([name, val]) => (
-            <input key={name} type="hidden" name={name} value={val} />
-          ))}
-          <label className="blank-vote">
-            <input type="checkbox" name="confirm" value="yes" required />{" "}
-            Confirmo eliminar esta candidatura.
-          </label>
-        </OperationForm>
-      )}
     </>
   );
 }
